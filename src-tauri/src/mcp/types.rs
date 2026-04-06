@@ -8,8 +8,11 @@ pub struct MCPServerConfig {
     pub server_url: String,
     #[serde(default = "default_auth_type")]
     pub auth_type: String,
+    #[serde(default)]
     pub bearer_token: Option<String>,
+    #[serde(default)]
     pub oauth_client_id: Option<String>,
+    #[serde(default)]
     pub oauth_client_secret: Option<String>,
     #[serde(default)]
     pub custom_headers: HashMap<String, String>,

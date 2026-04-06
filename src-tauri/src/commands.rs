@@ -1552,8 +1552,7 @@ pub async fn connect_mcp_server(
     state: State<'_, Arc<AppState>>,
     id: String,
 ) -> Result<(), CommandError> {
-    // Get server config from database
-    let config = match state.db.get_mcp_server(&id).map_err(|e| CommandError {
+    let mut config = match state.db.get_mcp_server(&id).map_err(|e| CommandError {
         message: format!("Failed to get server config: {}", e),
     })? {
         Some(config) => config,
@@ -1564,7 +1563,16 @@ pub async fn connect_mcp_server(
         }
     };
 
-    // Connect using MCP manager
+    config.enabled = true;
+    config.updated_at = chrono::Utc::now().to_rfc3339();
+
+    state
+        .db
+        .save_mcp_server(&config)
+        .map_err(|e| CommandError {
+            message: format!("Failed to persist MCP server configuration: {}", e),
+        })?;
+
     state
         .mcp_manager
         .connect_server(&config)
@@ -1573,13 +1581,7 @@ pub async fn connect_mcp_server(
             message: format!("Failed to connect to MCP server: {}", e),
         })?;
 
-    // Update enabled status in database
-    state
-        .db
-        .update_mcp_server_enabled(&id, true)
-        .map_err(|e| CommandError {
-            message: format!("Failed to update server status: {}", e),
-        })
+    Ok(())
 }
 
 #[command]

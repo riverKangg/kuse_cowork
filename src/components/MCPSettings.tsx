@@ -11,7 +11,10 @@ import {
 } from "../lib/mcp-api";
 import "./MCPSettings.css";
 
-type MCPAuthType = "none" | "bearer" | "oauth_client_credentials";
+type MCPAuthType =
+  | "none"
+  | "bearer"
+  | "oauth_client_credentials";
 
 function formatHeaders(headers?: Record<string, string>): string {
   if (!headers || Object.keys(headers).length === 0) {
@@ -19,6 +22,17 @@ function formatHeaders(headers?: Record<string, string>): string {
   }
 
   return JSON.stringify(headers, null, 2);
+}
+
+function formatAuthLabel(authType?: string): string {
+  switch (authType) {
+    case "bearer":
+      return "Bearer Token";
+    case "oauth_client_credentials":
+      return "OAuth Client Credentials";
+    default:
+      return "None";
+  }
 }
 
 interface MCPSettingsProps {
@@ -355,7 +369,7 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
 
                     <div class="server-details">
                       <div class="detail-row">
-                        <strong>Auth:</strong> {server.auth_type || "none"}
+                        <strong>Auth:</strong> {formatAuthLabel(server.auth_type)}
                       </div>
 
                       <div class="detail-row">

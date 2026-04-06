@@ -206,6 +206,7 @@ impl HttpMcpClient {
         &self,
         response: Response,
     ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+        let status = response.status();
         let content_type = response
             .headers()
             .get(reqwest::header::CONTENT_TYPE)
@@ -215,7 +216,15 @@ impl HttpMcpClient {
 
         if content_type.contains("text/event-stream") {
             let body = response.text().await?;
+            if !status.is_success() {
+                return Err(format!("HTTP {}: {}", status, body).into());
+            }
             return Self::parse_sse_json(&body);
+        }
+
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            return Err(format!("HTTP {}: {}", status, body).into());
         }
 
         Ok(response.json().await?)

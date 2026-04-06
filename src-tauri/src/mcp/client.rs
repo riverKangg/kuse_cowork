@@ -1,5 +1,6 @@
 use super::http_client::HttpMcpClient;
 use super::types::*;
+use crate::database::Database;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -16,7 +17,7 @@ pub struct MCPManager {
 }
 
 impl MCPManager {
-    pub fn new() -> Self {
+    pub fn new(_db: Arc<crate::database::Database>) -> Self {
         Self {
             clients: Arc::new(RwLock::new(HashMap::new())),
             server_status: Arc::new(RwLock::new(HashMap::new())),
@@ -31,7 +32,6 @@ impl MCPManager {
             return Err("Server is not enabled".into());
         }
 
-        // Update status to connecting
         {
             let mut status_map = self.server_status.write().await;
             status_map.insert(
@@ -46,7 +46,6 @@ impl MCPManager {
             );
         }
 
-        // Create OAuth token if needed
         let auth_token = match config.auth_type.as_str() {
             "bearer" => {
                 let token = config
@@ -85,18 +84,14 @@ impl MCPManager {
             _ => None,
         };
 
-        // Create HTTP MCP client
         let mut http_client = HttpMcpClient::new(
             config.server_url.clone(),
             auth_token,
             config.custom_headers.clone(),
         );
 
-        // Initialize the connection
         match http_client.initialize().await {
-            Ok(_) => {
-                // Initialization successful
-            }
+            Ok(_) => {}
             Err(e) => {
                 let error_msg = format!("Connection failed: {}", e);
                 self.update_status_error(&config.id, error_msg.clone())
@@ -105,7 +100,6 @@ impl MCPManager {
             }
         }
 
-        // Discover tools
         let tools = match self.discover_tools_http(&http_client, &config.id).await {
             Ok(tools) => tools,
             Err(e) => {
@@ -116,7 +110,6 @@ impl MCPManager {
             }
         };
 
-        // Store client and update status to connected
         let mcp_client = MCPClient {
             http_client,
             url: config.server_url.clone(),
@@ -145,13 +138,11 @@ impl MCPManager {
     }
 
     pub async fn disconnect_server(&self, server_id: &str) {
-        // Remove client
         {
             let mut clients = self.clients.write().await;
             clients.remove(server_id);
         }
 
-        // Update status to disconnected
         {
             let mut status_map = self.server_status.write().await;
             if let Some(status) = status_map.get_mut(server_id) {
@@ -163,59 +154,7 @@ impl MCPManager {
     }
 
     pub async fn execute_tool(&self, call: &MCPToolCall) -> MCPToolResult {
-        let clients = self.clients.read().await;
-
-        match clients.get(&call.server_id) {
-            Some(client) => {
-                // Execute tool with timeout
-                match tokio::time::timeout(
-                    std::time::Duration::from_secs(60),
-                    client
-                        .http_client
-                        .call_tool(&call.tool_name, Some(call.parameters.clone())),
-                )
-                .await
-                {
-                    Ok(Ok(response)) => {
-                        // Parse the JSON-RPC response
-                        if let Some(error) = response.get("error") {
-                            MCPToolResult {
-                                success: false,
-                                result: serde_json::Value::Null,
-                                error: Some(format!("Tool execution error: {}", error)),
-                            }
-                        } else if let Some(result) = response.get("result") {
-                            MCPToolResult {
-                                success: true,
-                                result: result.clone(),
-                                error: None,
-                            }
-                        } else {
-                            MCPToolResult {
-                                success: false,
-                                result: serde_json::Value::Null,
-                                error: Some("Invalid response format".to_string()),
-                            }
-                        }
-                    }
-                    Ok(Err(e)) => MCPToolResult {
-                        success: false,
-                        result: serde_json::Value::Null,
-                        error: Some(format!("Tool execution failed: {}", e)),
-                    },
-                    Err(_) => MCPToolResult {
-                        success: false,
-                        result: serde_json::Value::Null,
-                        error: Some("Tool execution timed out after 60 seconds".to_string()),
-                    },
-                }
-            }
-            None => MCPToolResult {
-                success: false,
-                result: serde_json::Value::Null,
-                error: Some(format!("Server {} not connected", call.server_id)),
-            },
-        }
+        self.execute_tool_once(call).await
     }
 
     pub async fn get_all_tools(&self) -> Vec<MCPTool> {
@@ -236,11 +175,77 @@ impl MCPManager {
         status_map.values().cloned().collect()
     }
 
+    async fn execute_tool_once(&self, call: &MCPToolCall) -> MCPToolResult {
+        let clients = self.clients.read().await;
+
+        match clients.get(&call.server_id) {
+            Some(client) => match tokio::time::timeout(
+                std::time::Duration::from_secs(60),
+                client
+                    .http_client
+                    .call_tool(&call.tool_name, Some(call.parameters.clone())),
+            )
+            .await
+            {
+                Ok(Ok(response)) => {
+                    if let Some(error) = response.get("error") {
+                        MCPToolResult {
+                            success: false,
+                            result: serde_json::Value::Null,
+                            error: Some(format!("Tool execution error: {}", error)),
+                        }
+                    } else if let Some(result) = response.get("result") {
+                        MCPToolResult {
+                            success: true,
+                            result: result.clone(),
+                            error: None,
+                        }
+                    } else {
+                        MCPToolResult {
+                            success: false,
+                            result: serde_json::Value::Null,
+                            error: Some("Invalid response format".to_string()),
+                        }
+                    }
+                }
+                Ok(Err(e)) => MCPToolResult {
+                    success: false,
+                    result: serde_json::Value::Null,
+                    error: Some(format!("Tool execution failed: {}", e)),
+                },
+                Err(_) => MCPToolResult {
+                    success: false,
+                    result: serde_json::Value::Null,
+                    error: Some("Tool execution timed out after 60 seconds".to_string()),
+                },
+            },
+            None => MCPToolResult {
+                success: false,
+                result: serde_json::Value::Null,
+                error: Some(format!("Server {} not connected", call.server_id)),
+            },
+        }
+    }
+
     async fn update_status_error(&self, server_id: &str, error: String) {
         let mut status_map = self.server_status.write().await;
-        if let Some(status) = status_map.get_mut(server_id) {
-            status.status = ConnectionStatus::Error;
-            status.last_error = Some(error);
+        match status_map.get_mut(server_id) {
+            Some(status) => {
+                status.status = ConnectionStatus::Error;
+                status.last_error = Some(error);
+            }
+            None => {
+                status_map.insert(
+                    server_id.to_string(),
+                    MCPServerStatus {
+                        id: server_id.to_string(),
+                        name: server_id.to_string(),
+                        status: ConnectionStatus::Error,
+                        tools: vec![],
+                        last_error: Some(error),
+                    },
+                );
+            }
         }
     }
 
@@ -295,18 +300,13 @@ impl MCPManager {
         server_url: &str,
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let oauth_url = self.discover_oauth_token_url(server_url).await?;
-
-        // Create HTTP client for OAuth request
         let client = reqwest::Client::new();
-
-        // Prepare OAuth request body (Client Credentials Grant)
         let params = [
             ("grant_type", "client_credentials"),
             ("client_id", client_id),
             ("client_secret", client_secret),
         ];
 
-        // Send OAuth token request with timeout
         let response = match tokio::time::timeout(
             std::time::Duration::from_secs(15),
             client
@@ -318,12 +318,8 @@ impl MCPManager {
         .await
         {
             Ok(Ok(response)) => response,
-            Ok(Err(e)) => {
-                return Err(format!("OAuth request failed: {}", e).into());
-            }
-            Err(_) => {
-                return Err("OAuth request timed out after 15 seconds".into());
-            }
+            Ok(Err(e)) => return Err(format!("OAuth request failed: {}", e).into()),
+            Err(_) => return Err("OAuth request timed out after 15 seconds".into()),
         };
 
         if !response.status().is_success() {
@@ -332,10 +328,7 @@ impl MCPManager {
             return Err(format!("OAuth request failed: {} - {}", status, error_text).into());
         }
 
-        // Parse OAuth response
         let oauth_response: serde_json::Value = response.json().await?;
-
-        // Extract access token
         if let Some(access_token) = oauth_response.get("access_token").and_then(|v| v.as_str()) {
             Ok(access_token.to_string())
         } else {
@@ -465,6 +458,7 @@ impl MCPManager {
 
 impl Default for MCPManager {
     fn default() -> Self {
-        Self::new()
+        let db = Arc::new(Database::new().expect("Failed to initialize database for MCP manager"));
+        Self::new(db)
     }
 }

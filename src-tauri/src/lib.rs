@@ -20,10 +20,8 @@ pub fn run() {
 
     // Initialize MCP tables
     db.create_mcp_tables().expect("Failed to create MCP tables");
-
-    // Initialize MCP manager
-    let mcp_manager = Arc::new(MCPManager::new());
     let db_arc = Arc::new(db);
+    let mcp_manager = Arc::new(MCPManager::new(db_arc.clone()));
 
     // Auto-connect enabled MCP servers will be done in the tauri app setup
 
