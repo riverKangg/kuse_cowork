@@ -11,6 +11,16 @@ import {
 } from "../lib/mcp-api";
 import "./MCPSettings.css";
 
+type MCPAuthType = "none" | "bearer" | "oauth_client_credentials";
+
+function formatHeaders(headers?: Record<string, string>): string {
+  if (!headers || Object.keys(headers).length === 0) {
+    return "{}";
+  }
+
+  return JSON.stringify(headers, null, 2);
+}
+
 interface MCPSettingsProps {
   onClose: () => void;
 }
@@ -26,8 +36,11 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
   const [formData, setFormData] = createSignal({
     name: "",
     serverUrl: "",
+    authType: "none" as MCPAuthType,
+    bearerToken: "",
     oauthClientId: "",
     oauthClientSecret: "",
+    customHeaders: "{}",
   });
 
   const mergedData = createMemo(() => {
@@ -62,8 +75,11 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
     setFormData({
       name: "",
       serverUrl: "",
+      authType: "none" as MCPAuthType,
+      bearerToken: "",
       oauthClientId: "",
       oauthClientSecret: "",
+      customHeaders: "{}",
     });
     setEditingServer(null);
     setShowAddForm(false);
@@ -73,8 +89,11 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
     setFormData({
       name: server.name,
       serverUrl: server.server_url || "",
+      authType: (server.auth_type || "none") as MCPAuthType,
+      bearerToken: server.bearer_token || "",
       oauthClientId: server.oauth_client_id || "",
       oauthClientSecret: server.oauth_client_secret || "",
+      customHeaders: formatHeaders(server.custom_headers),
     });
     setEditingServer(server);
     setShowAddForm(true);
@@ -94,12 +113,44 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
         return;
       }
 
+      let parsedHeaders: Record<string, string> = {};
+      if (data.customHeaders.trim()) {
+        try {
+          const candidate = JSON.parse(data.customHeaders);
+          if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+            parsedHeaders = Object.fromEntries(
+              Object.entries(candidate).map(([key, value]) => [key, String(value)])
+            );
+          } else {
+            alert("Custom headers must be a JSON object");
+            return;
+          }
+        } catch {
+          alert("Custom headers must be valid JSON");
+          return;
+        }
+      }
+
+      if (data.authType === "bearer" && !data.bearerToken.trim()) {
+        alert("Bearer token is required for bearer auth");
+        return;
+      }
+
+      if (data.authType === "oauth_client_credentials" &&
+        (!data.oauthClientId.trim() || !data.oauthClientSecret.trim())) {
+        alert("OAuth client ID and secret are required for OAuth auth");
+        return;
+      }
+
       const config: MCPServerConfig = {
         id: editingServer()?.id || crypto.randomUUID(),
         name: data.name,
         server_url: data.serverUrl,
-        oauth_client_id: data.oauthClientId.trim() || undefined,
-        oauth_client_secret: data.oauthClientSecret.trim() || undefined,
+        auth_type: data.authType,
+        bearer_token: data.authType === "bearer" ? data.bearerToken.trim() || undefined : undefined,
+        oauth_client_id: data.authType === "oauth_client_credentials" ? data.oauthClientId.trim() || undefined : undefined,
+        oauth_client_secret: data.authType === "oauth_client_credentials" ? data.oauthClientSecret.trim() || undefined : undefined,
+        custom_headers: parsedHeaders,
         enabled: editingServer()?.enabled ?? true,
         created_at: editingServer()?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -193,27 +244,68 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
               />
             </div>
 
+            <div class="form-group">
+              <label>Authentication</label>
+              <select
+                value={formData().authType}
+                onChange={(e) => setFormData(prev => ({ ...prev, authType: e.currentTarget.value as MCPAuthType }))}
+              >
+                <option value="none">None</option>
+                <option value="bearer">Bearer Token</option>
+                <option value="oauth_client_credentials">OAuth Client Credentials</option>
+              </select>
+            </div>
+
+            {formData().authType === "bearer" && (
+              <div class="form-group">
+                <label>Bearer Token</label>
+                <input
+                  type="password"
+                  value={formData().bearerToken}
+                  onInput={(e) => setFormData(prev => ({ ...prev, bearerToken: e.currentTarget.value }))}
+                  placeholder="your-bearer-token"
+                />
+              </div>
+            )}
+
             <details class="advanced-settings">
               <summary>Advanced settings</summary>
               <div class="advanced-content">
-                <div class="form-group">
-                  <label>OAuth Client ID (optional)</label>
-                  <input
-                    type="text"
-                    value={formData().oauthClientId}
-                    onInput={(e) => setFormData(prev => ({ ...prev, oauthClientId: e.currentTarget.value }))}
-                    placeholder="your-oauth-client-id"
-                  />
-                </div>
+                {formData().authType === "oauth_client_credentials" && (
+                  <>
+                    <div class="form-group">
+                      <label>OAuth Client ID</label>
+                      <input
+                        type="text"
+                        value={formData().oauthClientId}
+                        onInput={(e) => setFormData(prev => ({ ...prev, oauthClientId: e.currentTarget.value }))}
+                        placeholder="your-oauth-client-id"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label>OAuth Client Secret</label>
+                      <input
+                        type="password"
+                        value={formData().oauthClientSecret}
+                        onInput={(e) => setFormData(prev => ({ ...prev, oauthClientSecret: e.currentTarget.value }))}
+                        placeholder="your-oauth-client-secret"
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div class="form-group">
-                  <label>OAuth Client Secret (optional)</label>
-                  <input
-                    type="password"
-                    value={formData().oauthClientSecret}
-                    onInput={(e) => setFormData(prev => ({ ...prev, oauthClientSecret: e.currentTarget.value }))}
-                    placeholder="your-oauth-client-secret"
+                  <label>Custom Headers (JSON)</label>
+                  <textarea
+                    rows={6}
+                    value={formData().customHeaders}
+                    onInput={(e) => setFormData(prev => ({ ...prev, customHeaders: e.currentTarget.value }))}
+                    placeholder={'{\n  "X-Example": "value"\n}'}
                   />
+                  <small class="hint">
+                    Use this for pass-through auth headers or server-specific requirements.
+                  </small>
                 </div>
               </div>
             </details>
@@ -263,12 +355,28 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
 
                     <div class="server-details">
                       <div class="detail-row">
+                        <strong>Auth:</strong> {server.auth_type || "none"}
+                      </div>
+
+                      <div class="detail-row">
                         <strong>URL:</strong> {server.server_url}
                       </div>
+
+                      {server.bearer_token && (
+                        <div class="detail-row">
+                          <strong>Bearer:</strong> Configured
+                        </div>
+                      )}
 
                       {server.oauth_client_id && (
                         <div class="detail-row">
                           <strong>OAuth:</strong> Configured
+                        </div>
+                      )}
+
+                      {server.custom_headers && Object.keys(server.custom_headers).length > 0 && (
+                        <div class="detail-row">
+                          <strong>Headers:</strong> {Object.keys(server.custom_headers).join(", ")}
                         </div>
                       )}
 

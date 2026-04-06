@@ -4,8 +4,11 @@ export interface MCPServerConfig {
   id: string;
   name: string;
   server_url: string;
+  auth_type: "none" | "bearer" | "oauth_client_credentials";
+  bearer_token?: string;
   oauth_client_id?: string;
   oauth_client_secret?: string;
+  custom_headers: Record<string, string>;
   enabled: boolean;
   created_at: string;
   updated_at: string;

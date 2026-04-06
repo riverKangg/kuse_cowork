@@ -1,19 +1,19 @@
 use super::types::MCPServerConfig;
+use std::collections::HashMap;
 
 impl MCPServerConfig {
     #[allow(dead_code)]
-    pub fn new(
-        id: String,
-        name: String,
-        server_url: String,
-    ) -> Self {
+    pub fn new(id: String, name: String, server_url: String) -> Self {
         let now = chrono::Utc::now().to_rfc3339();
         Self {
             id,
             name,
             server_url,
+            auth_type: "none".to_string(),
+            bearer_token: None,
             oauth_client_id: None,
             oauth_client_secret: None,
+            custom_headers: HashMap::new(),
             enabled: false,
             created_at: now.clone(),
             updated_at: now,
