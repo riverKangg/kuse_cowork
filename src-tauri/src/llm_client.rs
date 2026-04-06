@@ -24,7 +24,7 @@ pub enum ApiFormat {
     Anthropic,
     OpenAI,
     OpenAICompatible,
-    OpenAIResponses,  // For GPT-5 series using /v1/responses endpoint
+    OpenAIResponses, // For GPT-5 series using /v1/responses endpoint
     Google,
     Minimax,
 }
@@ -183,7 +183,11 @@ impl ProviderConfig {
         let model_lower = model.to_lowercase();
 
         // Check OpenRouter format first (contains slash with known prefix)
-        if model_lower.starts_with("anthropic/") || model_lower.starts_with("openai/") || model_lower.starts_with("meta-llama/") || model_lower.starts_with("deepseek/") {
+        if model_lower.starts_with("anthropic/")
+            || model_lower.starts_with("openai/")
+            || model_lower.starts_with("meta-llama/")
+            || model_lower.starts_with("deepseek/")
+        {
             return Self::from_preset("openrouter");
         }
 
@@ -236,7 +240,12 @@ pub struct LLMClient {
 }
 
 impl LLMClient {
-    pub fn new(api_key: String, base_url: Option<String>, provider_id: Option<&str>, model: Option<&str>) -> Self {
+    pub fn new(
+        api_key: String,
+        base_url: Option<String>,
+        provider_id: Option<&str>,
+        model: Option<&str>,
+    ) -> Self {
         Self::new_with_openai_headers(api_key, base_url, provider_id, model, None, None)
     }
 
@@ -306,9 +315,7 @@ impl LLMClient {
 
     /// Build request headers
     fn build_headers(&self) -> Vec<(String, String)> {
-        let mut headers = vec![
-            ("Content-Type".to_string(), "application/json".to_string()),
-        ];
+        let mut headers = vec![("Content-Type".to_string(), "application/json".to_string())];
 
         match self.provider_config.auth_type {
             AuthType::None => {
@@ -316,7 +323,10 @@ impl LLMClient {
             }
             AuthType::Bearer => {
                 if !self.api_key.is_empty() {
-                    headers.push(("Authorization".to_string(), format!("Bearer {}", self.api_key)));
+                    headers.push((
+                        "Authorization".to_string(),
+                        format!("Bearer {}", self.api_key),
+                    ));
                 }
             }
             AuthType::ApiKey => {
@@ -357,11 +367,26 @@ impl LLMClient {
         temperature: Option<f32>,
     ) -> Result<String, LLMError> {
         match self.provider_config.api_format {
-            ApiFormat::Anthropic => self.send_anthropic(messages, model, max_tokens, temperature, false, None).await,
-            ApiFormat::OpenAI | ApiFormat::OpenAICompatible => self.send_openai_compatible(messages, model, max_tokens, temperature, false, None).await,
-            ApiFormat::OpenAIResponses => self.send_openai_responses(messages, model, max_tokens, temperature, false, None).await,
-            ApiFormat::Google => self.send_google(messages, model, max_tokens, temperature, false, None).await,
-            _ => Err(LLMError::UnsupportedProvider(format!("{:?}", self.provider_config.api_format))),
+            ApiFormat::Anthropic => {
+                self.send_anthropic(messages, model, max_tokens, temperature, false, None)
+                    .await
+            }
+            ApiFormat::OpenAI | ApiFormat::OpenAICompatible => {
+                self.send_openai_compatible(messages, model, max_tokens, temperature, false, None)
+                    .await
+            }
+            ApiFormat::OpenAIResponses => {
+                self.send_openai_responses(messages, model, max_tokens, temperature, false, None)
+                    .await
+            }
+            ApiFormat::Google => {
+                self.send_google(messages, model, max_tokens, temperature, false, None)
+                    .await
+            }
+            _ => Err(LLMError::UnsupportedProvider(format!(
+                "{:?}",
+                self.provider_config.api_format
+            ))),
         }
     }
 
@@ -375,11 +400,33 @@ impl LLMClient {
         tx: mpsc::Sender<String>,
     ) -> Result<String, LLMError> {
         match self.provider_config.api_format {
-            ApiFormat::Anthropic => self.send_anthropic(messages, model, max_tokens, temperature, true, Some(tx)).await,
-            ApiFormat::OpenAI | ApiFormat::OpenAICompatible => self.send_openai_compatible(messages, model, max_tokens, temperature, true, Some(tx)).await,
-            ApiFormat::OpenAIResponses => self.send_openai_responses(messages, model, max_tokens, temperature, true, Some(tx)).await,
-            ApiFormat::Google => self.send_google(messages, model, max_tokens, temperature, true, Some(tx)).await,
-            _ => Err(LLMError::UnsupportedProvider(format!("{:?}", self.provider_config.api_format))),
+            ApiFormat::Anthropic => {
+                self.send_anthropic(messages, model, max_tokens, temperature, true, Some(tx))
+                    .await
+            }
+            ApiFormat::OpenAI | ApiFormat::OpenAICompatible => {
+                self.send_openai_compatible(
+                    messages,
+                    model,
+                    max_tokens,
+                    temperature,
+                    true,
+                    Some(tx),
+                )
+                .await
+            }
+            ApiFormat::OpenAIResponses => {
+                self.send_openai_responses(messages, model, max_tokens, temperature, true, Some(tx))
+                    .await
+            }
+            ApiFormat::Google => {
+                self.send_google(messages, model, max_tokens, temperature, true, Some(tx))
+                    .await
+            }
+            _ => Err(LLMError::UnsupportedProvider(format!(
+                "{:?}",
+                self.provider_config.api_format
+            ))),
         }
     }
 
@@ -435,9 +482,13 @@ impl LLMClient {
     fn is_reasoning_model(model: &str) -> bool {
         let lower = model.to_lowercase();
         // o1, o1-mini, o1-preview, o3, o3-mini, gpt-5, gpt-5-mini, gpt-5-nano, etc.
-        lower.starts_with("o1") || lower.starts_with("o3") || lower.starts_with("gpt-5")
-            || lower.contains("-o1") || lower.contains("-o3")
-            || lower.contains("o1-") || lower.contains("o3-")
+        lower.starts_with("o1")
+            || lower.starts_with("o3")
+            || lower.starts_with("gpt-5")
+            || lower.contains("-o1")
+            || lower.contains("-o3")
+            || lower.contains("o1-")
+            || lower.contains("o3-")
     }
 
     /// Check if model supports custom temperature (for OpenAI, some models only support temperature=1)
@@ -448,7 +499,10 @@ impl LLMClient {
     /// Check if model is a legacy model that uses max_tokens instead of max_completion_tokens
     fn is_legacy_openai_model(model: &str) -> bool {
         let lower = model.to_lowercase();
-        lower.contains("gpt-3.5") || (lower.contains("gpt-4") && !lower.contains("gpt-4o") && !lower.contains("gpt-4-turbo"))
+        lower.contains("gpt-3.5")
+            || (lower.contains("gpt-4")
+                && !lower.contains("gpt-4o")
+                && !lower.contains("gpt-4-turbo"))
     }
 
     /// OpenAI Compatible API call
@@ -672,11 +726,16 @@ impl LLMClient {
     /// Parse Responses API response
     fn parse_responses_response(data: &serde_json::Value) -> Option<String> {
         // Response format: { output: [{ type: "message", content: [{ type: "output_text", text: "..." }] }] }
-        data["output"].as_array()?
+        data["output"]
+            .as_array()?
             .iter()
             .find(|item| item["type"].as_str() == Some("message"))
             .and_then(|msg| msg["content"].as_array())
-            .and_then(|content| content.iter().find(|c| c["type"].as_str() == Some("output_text")))
+            .and_then(|content| {
+                content
+                    .iter()
+                    .find(|c| c["type"].as_str() == Some("output_text"))
+            })
             .and_then(|c| c["text"].as_str())
             .map(|s| s.to_string())
     }
@@ -716,7 +775,9 @@ impl LLMClient {
                         }
                         // Handle response.completed for final text
                         if event["type"].as_str() == Some("response.completed") {
-                            if let Some(final_text) = Self::parse_responses_response(&event["response"]) {
+                            if let Some(final_text) =
+                                Self::parse_responses_response(&event["response"])
+                            {
                                 if !final_text.is_empty() && final_text != full_text {
                                     full_text = final_text;
                                     let _ = tx.send(full_text.clone()).await;
@@ -745,7 +806,11 @@ impl LLMClient {
         // https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
         // or for streaming: :streamGenerateContent?alt=sse
         let base = self.base_url.trim_end_matches('/');
-        let action = if stream { "streamGenerateContent" } else { "generateContent" };
+        let action = if stream {
+            "streamGenerateContent"
+        } else {
+            "generateContent"
+        };
         // Use alt=sse for streaming to get Server-Sent Events format
         let url = if stream {
             format!("{}/v1beta/models/{}:{}?alt=sse", base, model, action)
@@ -759,7 +824,11 @@ impl LLMClient {
             .iter()
             .map(|m| {
                 // Google uses "user" and "model" instead of "user" and "assistant"
-                let role = if m.role == "assistant" { "model" } else { &m.role };
+                let role = if m.role == "assistant" {
+                    "model"
+                } else {
+                    &m.role
+                };
                 serde_json::json!({
                     "role": role,
                     "parts": [{"text": m.content}]
@@ -776,7 +845,8 @@ impl LLMClient {
         });
 
         // Use x-goog-api-key header for authentication (recommended for Gemini 3)
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Content-Type", "application/json")
             .header("x-goog-api-key", &self.api_key)
@@ -837,7 +907,9 @@ impl LLMClient {
                     data
                 } else {
                     // Also handle raw JSON (fallback for non-SSE responses)
-                    line.trim_start_matches('[').trim_end_matches(']').trim_end_matches(',')
+                    line.trim_start_matches('[')
+                        .trim_end_matches(']')
+                        .trim_end_matches(',')
                 };
 
                 if json_str.is_empty() {
@@ -878,14 +950,26 @@ impl LLMClient {
             format!("{}/v1/models", base)
         };
 
-        match self.client.get(&models_url).timeout(std::time::Duration::from_secs(5)).send().await {
+        match self
+            .client
+            .get(&models_url)
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await
+        {
             Ok(resp) if resp.status().is_success() => return Ok(true),
             _ => {}
         }
 
         // Try Ollama specific endpoint
         let ollama_url = format!("{}/api/tags", base.replace("/v1", ""));
-        match self.client.get(&ollama_url).timeout(std::time::Duration::from_secs(5)).send().await {
+        match self
+            .client
+            .get(&ollama_url)
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await
+        {
             Ok(resp) if resp.status().is_success() => return Ok(true),
             _ => {}
         }

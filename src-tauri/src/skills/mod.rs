@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillMetadata {
@@ -10,8 +10,7 @@ pub struct SkillMetadata {
 
 /// Get the skills directory path (app data directory only)
 pub fn get_skills_directory() -> PathBuf {
-    let app_data = dirs::data_dir()
-        .expect("Could not determine app data directory");
+    let app_data = dirs::data_dir().expect("Could not determine app data directory");
 
     app_data.join("kuse-cowork").join("skills")
 }
@@ -43,10 +42,26 @@ fn install_default_skills_if_needed(skills_dir: &Path) {
     println!("Installing default skills to {}", skills_dir.display());
 
     // Install 4 core skills
-    install_skill(skills_dir, "pdf", include_str!("../../bundled-skills/pdf.skill.md"));
-    install_skill(skills_dir, "docx", include_str!("../../bundled-skills/docx.skill.md"));
-    install_skill(skills_dir, "xlsx", include_str!("../../bundled-skills/xlsx.skill.md"));
-    install_skill(skills_dir, "pptx", include_str!("../../bundled-skills/pptx.skill.md"));
+    install_skill(
+        skills_dir,
+        "pdf",
+        include_str!("../../bundled-skills/pdf.skill.md"),
+    );
+    install_skill(
+        skills_dir,
+        "docx",
+        include_str!("../../bundled-skills/docx.skill.md"),
+    );
+    install_skill(
+        skills_dir,
+        "xlsx",
+        include_str!("../../bundled-skills/xlsx.skill.md"),
+    );
+    install_skill(
+        skills_dir,
+        "pptx",
+        include_str!("../../bundled-skills/pptx.skill.md"),
+    );
 
     println!("Default skills installed successfully!");
 }
@@ -145,7 +160,10 @@ Some content here...
 
         let metadata = parse_skill_metadata(content).unwrap();
         assert_eq!(metadata.name, "pdf");
-        assert_eq!(metadata.description, "Comprehensive PDF manipulation toolkit");
+        assert_eq!(
+            metadata.description,
+            "Comprehensive PDF manipulation toolkit"
+        );
     }
 
     #[test]

@@ -73,9 +73,13 @@ impl Settings {
                 return "google".to_string();
             } else if base_url_lower.contains("api.minimax.chat") {
                 return "minimax".to_string();
-            } else if base_url_lower.contains("localhost:11434") || base_url_lower.contains("127.0.0.1:11434") {
+            } else if base_url_lower.contains("localhost:11434")
+                || base_url_lower.contains("127.0.0.1:11434")
+            {
                 return "ollama".to_string();
-            } else if base_url_lower.contains("localhost:1234") || base_url_lower.contains("127.0.0.1:1234") {
+            } else if base_url_lower.contains("localhost:1234")
+                || base_url_lower.contains("127.0.0.1:1234")
+            {
                 return "lm-studio".to_string();
             } else if base_url_lower.contains("openrouter.ai") {
                 return "openrouter".to_string();
@@ -97,14 +101,23 @@ impl Settings {
 
         if model_lower.contains("claude") {
             "anthropic".to_string()
-        } else if (model_lower.contains("gpt") || model_lower.starts_with("o1") || model_lower.starts_with("o3") || model_lower.starts_with("gpt-")) && !model_lower.contains("/") {
+        } else if (model_lower.contains("gpt")
+            || model_lower.starts_with("o1")
+            || model_lower.starts_with("o3")
+            || model_lower.starts_with("gpt-"))
+            && !model_lower.contains("/")
+        {
             // OpenAI models: gpt-*, o1-*, o3-*
             "openai".to_string()
         } else if model_lower.contains("gemini") {
             "google".to_string()
         } else if model_lower.contains("minimax") {
             "minimax".to_string()
-        } else if model_lower.starts_with("anthropic/") || model_lower.starts_with("openai/") || model_lower.starts_with("meta-llama/") || model_lower.starts_with("deepseek/") {
+        } else if model_lower.starts_with("anthropic/")
+            || model_lower.starts_with("openai/")
+            || model_lower.starts_with("meta-llama/")
+            || model_lower.starts_with("deepseek/")
+        {
             "openrouter".to_string()
         } else if model_lower.contains(":") {
             // Ollama format (e.g., llama3.3:latest)
@@ -120,7 +133,10 @@ impl Settings {
     pub fn is_local_provider(&self) -> bool {
         let provider = self.get_provider();
         // Only these providers truly don't need API keys
-        matches!(provider.as_str(), "ollama" | "localai" | "vllm" | "tgi" | "sglang" | "lm-studio")
+        matches!(
+            provider.as_str(),
+            "ollama" | "localai" | "vllm" | "tgi" | "sglang" | "lm-studio"
+        )
     }
 
     /// Check if API key can be empty (local providers or custom with empty key)
@@ -206,11 +222,12 @@ impl Database {
     }
 
     fn get_db_path() -> Result<PathBuf, DbError> {
-        let data_dir = dirs::data_dir()
-            .ok_or_else(|| DbError::Io(std::io::Error::new(
+        let data_dir = dirs::data_dir().ok_or_else(|| {
+            DbError::Io(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
                 "Could not find data directory",
-            )))?;
+            ))
+        })?;
         Ok(data_dir.join("kuse-cowork").join("kuse-cowork.db"))
     }
 
@@ -344,8 +361,8 @@ impl Database {
         };
 
         // Serialize provider_keys to JSON
-        let provider_keys_json = serde_json::to_string(&settings.provider_keys)
-            .unwrap_or_else(|_| "{}".to_string());
+        let provider_keys_json =
+            serde_json::to_string(&settings.provider_keys).unwrap_or_else(|_| "{}".to_string());
 
         let pairs = [
             ("api_key", settings.api_key.clone()),
@@ -374,7 +391,7 @@ impl Database {
         let mut stmt = conn.prepare(
             "SELECT id, title, created_at, updated_at
              FROM conversations
-             ORDER BY updated_at DESC"
+             ORDER BY updated_at DESC",
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -441,7 +458,7 @@ impl Database {
             "SELECT id, conversation_id, role, content, timestamp
              FROM messages
              WHERE conversation_id = ?1
-             ORDER BY timestamp ASC"
+             ORDER BY timestamp ASC",
         )?;
 
         let rows = stmt.query_map([conversation_id], |row| {
@@ -517,8 +534,8 @@ impl Database {
 
         let rows = stmt.query_map([], |row| {
             let plan_json: Option<String> = row.get(4)?;
-            let plan: Option<Vec<PlanStep>> = plan_json
-                .and_then(|json| serde_json::from_str(&json).ok());
+            let plan: Option<Vec<PlanStep>> =
+                plan_json.and_then(|json| serde_json::from_str(&json).ok());
 
             Ok(Task {
                 id: row.get(0)?,
@@ -553,8 +570,8 @@ impl Database {
 
         if let Some(row) = rows.next()? {
             let plan_json: Option<String> = row.get(4)?;
-            let plan: Option<Vec<PlanStep>> = plan_json
-                .and_then(|json| serde_json::from_str(&json).ok());
+            let plan: Option<Vec<PlanStep>> =
+                plan_json.and_then(|json| serde_json::from_str(&json).ok());
 
             Ok(Some(Task {
                 id: row.get(0)?,
@@ -572,7 +589,13 @@ impl Database {
         }
     }
 
-    pub fn create_task(&self, id: &str, title: &str, description: &str, project_path: Option<&str>) -> Result<Task, DbError> {
+    pub fn create_task(
+        &self,
+        id: &str,
+        title: &str,
+        description: &str,
+        project_path: Option<&str>,
+    ) -> Result<Task, DbError> {
         let conn = self.conn.lock().map_err(|_| DbError::Lock)?;
         let now = chrono::Utc::now().timestamp_millis();
 
@@ -608,7 +631,12 @@ impl Database {
         Ok(())
     }
 
-    pub fn update_task_step(&self, id: &str, current_step: i32, step_status: &str) -> Result<(), DbError> {
+    pub fn update_task_step(
+        &self,
+        id: &str,
+        current_step: i32,
+        step_status: &str,
+    ) -> Result<(), DbError> {
         let conn = self.conn.lock().map_err(|_| DbError::Lock)?;
         let now = chrono::Utc::now().timestamp_millis();
 
@@ -660,7 +688,7 @@ impl Database {
             "SELECT id, task_id, role, content, timestamp
              FROM task_messages
              WHERE task_id = ?1
-             ORDER BY timestamp ASC"
+             ORDER BY timestamp ASC",
         )?;
 
         let rows = stmt.query_map([task_id], |row| {

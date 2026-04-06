@@ -26,10 +26,7 @@ pub fn definition() -> ToolDefinition {
     }
 }
 
-pub fn execute(
-    input: &serde_json::Value,
-    project_path: Option<&str>,
-) -> Result<String, String> {
+pub fn execute(input: &serde_json::Value, project_path: Option<&str>) -> Result<String, String> {
     let pattern = input
         .get("pattern")
         .and_then(|v| v.as_str())
@@ -41,10 +38,7 @@ pub fn execute(
         .or(project_path)
         .unwrap_or(".");
 
-    let limit = input
-        .get("limit")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(100) as usize;
+    let limit = input.get("limit").and_then(|v| v.as_u64()).unwrap_or(100) as usize;
 
     // Construct full pattern
     let full_pattern = if pattern.starts_with('/') || pattern.starts_with('.') {
@@ -54,8 +48,7 @@ pub fn execute(
     };
 
     // Use glob crate
-    let entries = glob::glob(&full_pattern)
-        .map_err(|e| format!("Invalid glob pattern: {}", e))?;
+    let entries = glob::glob(&full_pattern).map_err(|e| format!("Invalid glob pattern: {}", e))?;
 
     let mut results: Vec<String> = Vec::new();
     let mut total_count = 0;

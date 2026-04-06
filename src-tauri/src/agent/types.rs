@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::skills::{get_available_skills, get_skills_directory_path};
+use serde::{Deserialize, Serialize};
 
 /// Tool definition sent to Claude API
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -180,7 +180,10 @@ pub fn build_system_prompt() -> String {
         let skills_path = get_skills_directory_path();
 
         prompt.push_str("\n\n## Available Skills\n");
-        prompt.push_str(&format!("Skills are located in {} (auto-mounted at /skills in Docker):\n\n", skills_path));
+        prompt.push_str(&format!(
+            "Skills are located in {} (auto-mounted at /skills in Docker):\n\n",
+            skills_path
+        ));
 
         for skill in skills {
             prompt.push_str(&format!("- **{}**: {}\n", skill.name, skill.description));
@@ -192,9 +195,16 @@ pub fn build_system_prompt() -> String {
         prompt.push_str("2. Follow the instructions in SKILL.md\n");
         prompt.push_str("3. Load additional referenced files progressively as needed:\n");
         prompt.push_str(&format!("   - `{}/{{skill_name}}/forms.md`\n", skills_path));
-        prompt.push_str(&format!("   - `{}/{{skill_name}}/reference.md`\n", skills_path));
-        prompt.push_str("4. Execute scripts using docker_run tool - skills are auto-mounted at /skills\n");
-        prompt.push_str("5. Example: `python /skills/pdf/scripts/extract_text.py /workspace/document.pdf`\n");
+        prompt.push_str(&format!(
+            "   - `{}/{{skill_name}}/reference.md`\n",
+            skills_path
+        ));
+        prompt.push_str(
+            "4. Execute scripts using docker_run tool - skills are auto-mounted at /skills\n",
+        );
+        prompt.push_str(
+            "5. Example: `python /skills/pdf/scripts/extract_text.py /workspace/document.pdf`\n",
+        );
         prompt.push_str("\nNote: The ~ symbol is supported in read_file paths and will expand to the user's home directory.\n");
     }
 
@@ -214,9 +224,16 @@ pub enum AgentEvent {
     #[serde(rename = "step_done")]
     StepDone { step: i32 },
     #[serde(rename = "tool_start")]
-    ToolStart { tool: String, input: serde_json::Value },
+    ToolStart {
+        tool: String,
+        input: serde_json::Value,
+    },
     #[serde(rename = "tool_end")]
-    ToolEnd { tool: String, result: String, success: bool },
+    ToolEnd {
+        tool: String,
+        result: String,
+        success: bool,
+    },
     #[serde(rename = "turn_complete")]
     TurnComplete { turn: u32 },
     #[serde(rename = "done")]

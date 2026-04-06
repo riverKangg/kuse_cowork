@@ -32,10 +32,7 @@ pub fn definition() -> ToolDefinition {
     }
 }
 
-pub fn execute(
-    input: &serde_json::Value,
-    project_path: Option<&str>,
-) -> Result<String, String> {
+pub fn execute(input: &serde_json::Value, project_path: Option<&str>) -> Result<String, String> {
     let path_str = input
         .get("path")
         .and_then(|v| v.as_str())
@@ -65,8 +62,7 @@ pub fn execute(
     }
 
     // Read current content
-    let content = fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+    let content = fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
 
     // Check if old_string exists
     let count = content.matches(old_string).count();
@@ -92,8 +88,7 @@ pub fn execute(
     };
 
     // Write back
-    fs::write(&path, &new_content)
-        .map_err(|e| format!("Failed to write file: {}", e))?;
+    fs::write(&path, &new_content).map_err(|e| format!("Failed to write file: {}", e))?;
 
     let replaced_count = if replace_all { count } else { 1 };
     Ok(format!(

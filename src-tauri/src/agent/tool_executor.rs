@@ -57,19 +57,21 @@ impl ToolExecutor {
                     } else {
                         ToolResult::error(
                             tool_use.id.clone(),
-                            mcp_result.error.unwrap_or("MCP tool execution failed".to_string())
+                            mcp_result
+                                .error
+                                .unwrap_or("MCP tool execution failed".to_string()),
                         )
                     };
                 } else {
                     return ToolResult::error(
                         tool_use.id.clone(),
-                        format!("MCP tool '{}' not found", tool_use.name)
+                        format!("MCP tool '{}' not found", tool_use.name),
                     );
                 }
             } else {
                 return ToolResult::error(
                     tool_use.id.clone(),
-                    "MCP manager not available".to_string()
+                    "MCP manager not available".to_string(),
                 );
             }
         }

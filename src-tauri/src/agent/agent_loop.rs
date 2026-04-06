@@ -35,7 +35,16 @@ impl AgentLoop {
         temperature: Option<f32>,
         mcp_manager: Arc<MCPManager>,
     ) -> Self {
-        Self::new_with_provider(api_key, base_url, config, model, max_tokens, temperature, mcp_manager, None)
+        Self::new_with_provider(
+            api_key,
+            base_url,
+            config,
+            model,
+            max_tokens,
+            temperature,
+            mcp_manager,
+            None,
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -49,14 +58,11 @@ impl AgentLoop {
         mcp_manager: Arc<MCPManager>,
         provider_id: Option<&str>,
     ) -> Self {
-        let tool_executor = ToolExecutor::new(config.project_path.clone())
-            .with_mcp_manager(mcp_manager.clone());
-        let message_builder = MessageBuilder::new(
-            config.clone(),
-            model.clone(),
-            max_tokens,
-            temperature,
-        ).with_mcp_manager(mcp_manager);
+        let tool_executor =
+            ToolExecutor::new(config.project_path.clone()).with_mcp_manager(mcp_manager.clone());
+        let message_builder =
+            MessageBuilder::new(config.clone(), model.clone(), max_tokens, temperature)
+                .with_mcp_manager(mcp_manager);
 
         // Infer config from provider_id or model
         let mut provider_config = if let Some(pid) = provider_id {
@@ -127,9 +133,7 @@ impl AgentLoop {
 
             // Parse and emit plan if present
             if let Some(plan_steps) = self.parse_plan(&text_content) {
-                let _ = event_tx
-                    .send(AgentEvent::Plan { steps: plan_steps })
-                    .await;
+                let _ = event_tx.send(AgentEvent::Plan { steps: plan_steps }).await;
             }
 
             // Parse and emit step markers
@@ -170,9 +174,7 @@ impl AgentLoop {
 
             // If no tool uses, we're done
             if tool_uses.is_empty() {
-                let _ = event_tx
-                    .send(AgentEvent::Done { total_turns: turn })
-                    .await;
+                let _ = event_tx.send(AgentEvent::Done { total_turns: turn }).await;
                 break;
             }
 
@@ -227,7 +229,10 @@ impl AgentLoop {
                 self.send_openai_request(request, event_tx).await
             }
             ApiFormat::Google => self.send_google_request(request, event_tx).await,
-            _ => Err(format!("Unsupported API format: {:?}", self.provider_config.api_format)),
+            _ => Err(format!(
+                "Unsupported API format: {:?}",
+                self.provider_config.api_format
+            )),
         }
     }
 
@@ -239,7 +244,9 @@ impl AgentLoop {
     ) -> Result<serde_json::Value, String> {
         let url = format!("{}/v1/messages", self.base_url.trim_end_matches('/'));
 
-        let mut req = self.client.post(&url)
+        let mut req = self
+            .client
+            .post(&url)
             .header("Content-Type", "application/json")
             .header("anthropic-version", "2023-06-01");
 
@@ -278,7 +285,9 @@ impl AgentLoop {
         // Convert request format to OpenAI format
         let openai_request = self.convert_to_openai_format(request);
 
-        let mut req = self.client.post(&url)
+        let mut req = self
+            .client
+            .post(&url)
             .header("Content-Type", "application/json");
 
         // Add authentication (if needed)
@@ -391,16 +400,20 @@ impl AgentLoop {
         }
 
         // Convert tools definition
-        let tools: Vec<serde_json::Value> = request.tools.iter().map(|tool| {
-            serde_json::json!({
-                "type": "function",
-                "function": {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": tool.input_schema
-                }
+        let tools: Vec<serde_json::Value> = request
+            .tools
+            .iter()
+            .map(|tool| {
+                serde_json::json!({
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.input_schema
+                    }
+                })
             })
-        }).collect();
+            .collect();
 
         let mut openai_request = serde_json::json!({
             "model": request.model,
@@ -411,7 +424,9 @@ impl AgentLoop {
         // Use correct max tokens parameter based on model
         let model_lower = request.model.to_lowercase();
         let is_legacy = model_lower.contains("gpt-3.5")
-            || (model_lower.contains("gpt-4") && !model_lower.contains("gpt-4o") && !model_lower.contains("gpt-4-turbo"));
+            || (model_lower.contains("gpt-4")
+                && !model_lower.contains("gpt-4o")
+                && !model_lower.contains("gpt-4-turbo"));
 
         if is_legacy {
             openai_request["max_tokens"] = serde_json::json!(request.max_tokens);
@@ -420,9 +435,13 @@ impl AgentLoop {
         }
 
         // Only add temperature for non-reasoning models (o1, o3, gpt-5 don't support custom temperature)
-        let is_reasoning = model_lower.starts_with("o1") || model_lower.starts_with("o3") || model_lower.starts_with("gpt-5")
-            || model_lower.contains("-o1") || model_lower.contains("-o3")
-            || model_lower.contains("o1-") || model_lower.contains("o3-");
+        let is_reasoning = model_lower.starts_with("o1")
+            || model_lower.starts_with("o3")
+            || model_lower.starts_with("gpt-5")
+            || model_lower.contains("-o1")
+            || model_lower.contains("-o3")
+            || model_lower.contains("o1-")
+            || model_lower.contains("o3-");
 
         if !is_reasoning {
             if let Some(temp) = request.temperature {
@@ -445,12 +464,17 @@ impl AgentLoop {
         event_tx: &mpsc::Sender<AgentEvent>,
     ) -> Result<serde_json::Value, String> {
         let base = self.base_url.trim_end_matches('/');
-        let url = format!("{}/v1beta/models/{}:streamGenerateContent?alt=sse", base, request.model);
+        let url = format!(
+            "{}/v1beta/models/{}:streamGenerateContent?alt=sse",
+            base, request.model
+        );
 
         // Convert request format to Google format
         let google_request = self.convert_to_google_format(request);
 
-        let response = self.client.post(&url)
+        let response = self
+            .client
+            .post(&url)
             .header("Content-Type", "application/json")
             .header("x-goog-api-key", &self.api_key)
             .json(&google_request)
@@ -474,7 +498,8 @@ impl AgentLoop {
         use crate::agent::message_builder::ApiContent;
 
         // Build a map of tool_use_id -> thought_signature for looking up when building functionResponse
-        let mut thought_signatures: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        let mut thought_signatures: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
         for msg in &request.messages {
             if let ApiContent::Blocks(blocks) = &msg.content {
                 for block in blocks {
@@ -496,7 +521,11 @@ impl AgentLoop {
         // Convert messages to Google format
         for msg in &request.messages {
             // Google uses "user" and "model" instead of "user" and "assistant"
-            let role = if msg.role == "assistant" { "model" } else { &msg.role };
+            let role = if msg.role == "assistant" {
+                "model"
+            } else {
+                &msg.role
+            };
 
             let parts = match &msg.content {
                 ApiContent::Text(text) => {
@@ -522,14 +551,19 @@ impl AgentLoop {
                                     }
                                 });
                                 // Include thoughtSignature if present (for Gemini 3)
-                                if let Some(sig) = block.get("thought_signature").and_then(|v| v.as_str()) {
+                                if let Some(sig) =
+                                    block.get("thought_signature").and_then(|v| v.as_str())
+                                {
                                     fc_part["thoughtSignature"] = serde_json::json!(sig);
                                 }
                                 parts_list.push(fc_part);
                             }
                             "tool_result" => {
                                 // Convert to functionResponse format with thoughtSignature
-                                let tool_use_id = block.get("tool_use_id").and_then(|v| v.as_str()).unwrap_or("unknown");
+                                let tool_use_id = block
+                                    .get("tool_use_id")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("unknown");
 
                                 let mut fr_part = serde_json::json!({
                                     "functionResponse": {
@@ -563,13 +597,17 @@ impl AgentLoop {
         }
 
         // Convert tools to Google functionDeclarations format
-        let function_declarations: Vec<serde_json::Value> = request.tools.iter().map(|tool| {
-            serde_json::json!({
-                "name": tool.name,
-                "description": tool.description,
-                "parameters": tool.input_schema
+        let function_declarations: Vec<serde_json::Value> = request
+            .tools
+            .iter()
+            .map(|tool| {
+                serde_json::json!({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.input_schema
+                })
             })
-        }).collect();
+            .collect();
 
         let mut google_request = serde_json::json!({
             "contents": contents,
@@ -631,7 +669,8 @@ impl AgentLoop {
                     // Extract text and function calls from candidates
                     if let Some(candidates) = event.get("candidates").and_then(|v| v.as_array()) {
                         for candidate in candidates {
-                            if let Some(parts) = candidate.get("content")
+                            if let Some(parts) = candidate
+                                .get("content")
                                 .and_then(|c| c.get("parts"))
                                 .and_then(|p| p.as_array())
                             {
@@ -640,19 +679,29 @@ impl AgentLoop {
                                     if let Some(text) = part.get("text").and_then(|v| v.as_str()) {
                                         if !text.is_empty() {
                                             accumulated_text.push_str(text);
-                                            let _ = event_tx.send(AgentEvent::Text {
-                                                content: accumulated_text.clone(),
-                                            }).await;
+                                            let _ = event_tx
+                                                .send(AgentEvent::Text {
+                                                    content: accumulated_text.clone(),
+                                                })
+                                                .await;
                                         }
                                     }
                                     // Handle function calls (with thoughtSignature for Gemini 3)
                                     if let Some(fc) = part.get("functionCall") {
-                                        let name = fc.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                        let args = fc.get("args").cloned().unwrap_or(serde_json::json!({}));
+                                        let name = fc
+                                            .get("name")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("")
+                                            .to_string();
+                                        let args = fc
+                                            .get("args")
+                                            .cloned()
+                                            .unwrap_or(serde_json::json!({}));
                                         let id = format!("fc_{}", uuid::Uuid::new_v4());
 
                                         // Capture thoughtSignature from the same part (required for Gemini 3)
-                                        let thought_sig = part.get("thoughtSignature").and_then(|v| v.as_str());
+                                        let thought_sig =
+                                            part.get("thoughtSignature").and_then(|v| v.as_str());
 
                                         let mut tool_use = serde_json::json!({
                                             "type": "tool_use",
@@ -703,7 +752,8 @@ impl AgentLoop {
         let mut buffer = String::new();
         let mut accumulated_text = String::new();
         let mut tool_calls: Vec<serde_json::Value> = Vec::new();
-        let mut current_tool_calls: std::collections::HashMap<i64, (String, String, String)> = std::collections::HashMap::new();
+        let mut current_tool_calls: std::collections::HashMap<i64, (String, String, String)> =
+            std::collections::HashMap::new();
 
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|e| format!("Stream error: {}", e))?;
@@ -723,30 +773,46 @@ impl AgentLoop {
                             for choice in choices {
                                 if let Some(delta) = choice.get("delta") {
                                     // Handle text content
-                                    if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
+                                    if let Some(content) =
+                                        delta.get("content").and_then(|v| v.as_str())
+                                    {
                                         accumulated_text.push_str(content);
-                                        let _ = event_tx.send(AgentEvent::Text {
-                                            content: accumulated_text.clone(),
-                                        }).await;
+                                        let _ = event_tx
+                                            .send(AgentEvent::Text {
+                                                content: accumulated_text.clone(),
+                                            })
+                                            .await;
                                     }
 
                                     // Handle tool_calls
-                                    if let Some(tcs) = delta.get("tool_calls").and_then(|v| v.as_array()) {
+                                    if let Some(tcs) =
+                                        delta.get("tool_calls").and_then(|v| v.as_array())
+                                    {
                                         for tc in tcs {
-                                            let index = tc.get("index").and_then(|v| v.as_i64()).unwrap_or(0);
+                                            let index = tc
+                                                .get("index")
+                                                .and_then(|v| v.as_i64())
+                                                .unwrap_or(0);
 
-                                            let entry = current_tool_calls.entry(index).or_insert_with(|| {
-                                                (String::new(), String::new(), String::new())
-                                            });
+                                            let entry = current_tool_calls
+                                                .entry(index)
+                                                .or_insert_with(|| {
+                                                    (String::new(), String::new(), String::new())
+                                                });
 
-                                            if let Some(id) = tc.get("id").and_then(|v| v.as_str()) {
+                                            if let Some(id) = tc.get("id").and_then(|v| v.as_str())
+                                            {
                                                 entry.0 = id.to_string();
                                             }
                                             if let Some(func) = tc.get("function") {
-                                                if let Some(name) = func.get("name").and_then(|v| v.as_str()) {
+                                                if let Some(name) =
+                                                    func.get("name").and_then(|v| v.as_str())
+                                                {
                                                     entry.1 = name.to_string();
                                                 }
-                                                if let Some(args) = func.get("arguments").and_then(|v| v.as_str()) {
+                                                if let Some(args) =
+                                                    func.get("arguments").and_then(|v| v.as_str())
+                                                {
                                                     entry.2.push_str(args);
                                                 }
                                             }
@@ -755,12 +821,17 @@ impl AgentLoop {
                                 }
 
                                 // Check if finished
-                                if choice.get("finish_reason").and_then(|v| v.as_str()).is_some() {
+                                if choice
+                                    .get("finish_reason")
+                                    .and_then(|v| v.as_str())
+                                    .is_some()
+                                {
                                     // When finished, convert collected tool_calls to Claude format
                                     for (id, name, args) in current_tool_calls.values() {
                                         if !id.is_empty() && !name.is_empty() {
-                                            let input: serde_json::Value = serde_json::from_str(args)
-                                                .unwrap_or(serde_json::json!({}));
+                                            let input: serde_json::Value =
+                                                serde_json::from_str(args)
+                                                    .unwrap_or(serde_json::json!({}));
                                             tool_calls.push(serde_json::json!({
                                                 "type": "tool_use",
                                                 "id": id,
@@ -827,7 +898,9 @@ impl AgentLoop {
                         match event_type {
                             "content_block_start" => {
                                 if let Some(block) = event.get("content_block") {
-                                    if block.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
+                                    if block.get("type").and_then(|v| v.as_str())
+                                        == Some("tool_use")
+                                    {
                                         current_tool_id = block
                                             .get("id")
                                             .and_then(|v| v.as_str())
@@ -844,10 +917,13 @@ impl AgentLoop {
                             }
                             "content_block_delta" => {
                                 if let Some(delta) = event.get("delta") {
-                                    let delta_type = delta.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                                    let delta_type =
+                                        delta.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
                                     if delta_type == "text_delta" {
-                                        if let Some(text) = delta.get("text").and_then(|v| v.as_str()) {
+                                        if let Some(text) =
+                                            delta.get("text").and_then(|v| v.as_str())
+                                        {
                                             accumulated_text.push_str(text);
                                             // Emit streaming text
                                             let _ = event_tx
@@ -857,7 +933,9 @@ impl AgentLoop {
                                                 .await;
                                         }
                                     } else if delta_type == "input_json_delta" {
-                                        if let Some(partial) = delta.get("partial_json").and_then(|v| v.as_str()) {
+                                        if let Some(partial) =
+                                            delta.get("partial_json").and_then(|v| v.as_str())
+                                        {
                                             current_tool_input.push_str(partial);
                                         }
                                     }
@@ -865,8 +943,9 @@ impl AgentLoop {
                             }
                             "content_block_stop" => {
                                 if !current_tool_id.is_empty() {
-                                    let input: serde_json::Value = serde_json::from_str(&current_tool_input)
-                                        .unwrap_or(serde_json::json!({}));
+                                    let input: serde_json::Value =
+                                        serde_json::from_str(&current_tool_input)
+                                            .unwrap_or(serde_json::json!({}));
 
                                     tool_uses.push(serde_json::json!({
                                         "type": "tool_use",
@@ -943,7 +1022,12 @@ impl AgentLoop {
                         .and_then(|v| v.as_str())
                         .map(|s| s.to_string());
 
-                    tool_uses.push(ToolUse { id, name, input, thought_signature });
+                    tool_uses.push(ToolUse {
+                        id,
+                        name,
+                        input,
+                        thought_signature,
+                    });
                 }
                 _ => {}
             }

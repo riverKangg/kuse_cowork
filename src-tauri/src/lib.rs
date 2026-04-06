@@ -87,7 +87,10 @@ pub fn run() {
                         for server in servers {
                             if server.enabled {
                                 if let Err(e) = mcp_manager.connect_server(&server).await {
-                                    eprintln!("Failed to auto-connect MCP server '{}': {}", server.name, e);
+                                    eprintln!(
+                                        "Failed to auto-connect MCP server '{}': {}",
+                                        server.name, e
+                                    );
                                 } else {
                                     println!("Auto-connected MCP server: {}", server.name);
                                 }

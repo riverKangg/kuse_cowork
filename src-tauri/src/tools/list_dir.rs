@@ -28,10 +28,7 @@ pub fn definition() -> ToolDefinition {
     }
 }
 
-pub fn execute(
-    input: &serde_json::Value,
-    project_path: Option<&str>,
-) -> Result<String, String> {
+pub fn execute(input: &serde_json::Value, project_path: Option<&str>) -> Result<String, String> {
     let path_str = input
         .get("path")
         .and_then(|v| v.as_str())
@@ -43,10 +40,7 @@ pub fn execute(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let max_depth = input
-        .get("max_depth")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(3) as usize;
+    let max_depth = input.get("max_depth").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
 
     let path = resolve_path(path_str, project_path)?;
 
@@ -74,8 +68,7 @@ pub fn execute(
 }
 
 fn list_single(path: &Path, results: &mut Vec<String>) -> Result<(), String> {
-    let entries = fs::read_dir(path)
-        .map_err(|e| format!("Failed to read directory: {}", e))?;
+    let entries = fs::read_dir(path).map_err(|e| format!("Failed to read directory: {}", e))?;
 
     let mut items: Vec<(String, bool, u64)> = Vec::new();
 
@@ -90,12 +83,10 @@ fn list_single(path: &Path, results: &mut Vec<String>) -> Result<(), String> {
     }
 
     // Sort: directories first, then by name
-    items.sort_by(|a, b| {
-        match (a.1, b.1) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.0.cmp(&b.0),
-        }
+    items.sort_by(|a, b| match (a.1, b.1) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.0.cmp(&b.0),
     });
 
     for (name, is_dir, size) in items {
@@ -132,19 +123,21 @@ fn list_recursive(
         let name = entry.file_name().to_string_lossy().to_string();
 
         // Skip hidden files and common ignore patterns
-        if name.starts_with('.') || name == "node_modules" || name == "target" || name == "__pycache__" {
+        if name.starts_with('.')
+            || name == "node_modules"
+            || name == "target"
+            || name == "__pycache__"
+        {
             continue;
         }
 
         items.push((name, is_dir, entry.path()));
     }
 
-    items.sort_by(|a, b| {
-        match (a.1, b.1) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.0.cmp(&b.0),
-        }
+    items.sort_by(|a, b| match (a.1, b.1) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.0.cmp(&b.0),
     });
 
     let indent = "  ".repeat(depth);

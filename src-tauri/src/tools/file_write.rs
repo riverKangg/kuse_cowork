@@ -24,10 +24,7 @@ pub fn definition() -> ToolDefinition {
     }
 }
 
-pub fn execute(
-    input: &serde_json::Value,
-    project_path: Option<&str>,
-) -> Result<String, String> {
+pub fn execute(input: &serde_json::Value, project_path: Option<&str>) -> Result<String, String> {
     let path_str = input
         .get("path")
         .and_then(|v| v.as_str())
@@ -50,8 +47,7 @@ pub fn execute(
     }
 
     // Write file
-    fs::write(&path, content)
-        .map_err(|e| format!("Failed to write file: {}", e))?;
+    fs::write(&path, content).map_err(|e| format!("Failed to write file: {}", e))?;
 
     let line_count = content.lines().count();
     Ok(format!(

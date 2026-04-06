@@ -32,7 +32,7 @@ pub fn definition() -> ToolDefinition {
 const BLOCKED_PATTERNS: &[&str] = &[
     "rm -rf /",
     "rm -rf /*",
-    ":(){ :|:& };:",  // Fork bomb
+    ":(){ :|:& };:", // Fork bomb
     "> /dev/sda",
     "mkfs.",
     "dd if=",
@@ -42,19 +42,13 @@ const BLOCKED_PATTERNS: &[&str] = &[
     "curl | bash",
 ];
 
-pub fn execute(
-    input: &serde_json::Value,
-    project_path: Option<&str>,
-) -> Result<String, String> {
+pub fn execute(input: &serde_json::Value, project_path: Option<&str>) -> Result<String, String> {
     let command = input
         .get("command")
         .and_then(|v| v.as_str())
         .ok_or("Missing 'command' parameter")?;
 
-    let cwd = input
-        .get("cwd")
-        .and_then(|v| v.as_str())
-        .or(project_path);
+    let cwd = input.get("cwd").and_then(|v| v.as_str()).or(project_path);
 
     let timeout_secs = input
         .get("timeout")
@@ -84,7 +78,8 @@ pub fn execute(
     cmd.stderr(Stdio::piped());
 
     // Execute with timeout
-    let child = cmd.spawn()
+    let child = cmd
+        .spawn()
         .map_err(|e| format!("Failed to spawn command: {}", e))?;
 
     let output = wait_with_timeout(child, Duration::from_secs(timeout_secs))?;
@@ -132,8 +127,8 @@ fn wait_with_timeout(
     child: std::process::Child,
     timeout: Duration,
 ) -> Result<std::process::Output, String> {
-    use std::thread;
     use std::sync::mpsc;
+    use std::thread;
 
     let (tx, rx) = mpsc::channel();
 

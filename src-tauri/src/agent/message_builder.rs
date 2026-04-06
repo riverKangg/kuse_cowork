@@ -39,7 +39,12 @@ pub struct MessageBuilder {
 }
 
 impl MessageBuilder {
-    pub fn new(config: AgentConfig, model: String, max_tokens: u32, temperature: Option<f32>) -> Self {
+    pub fn new(
+        config: AgentConfig,
+        model: String,
+        max_tokens: u32,
+        temperature: Option<f32>,
+    ) -> Self {
         Self {
             config,
             model,
@@ -81,9 +86,16 @@ impl MessageBuilder {
         let mut mcp_tools = Vec::new();
 
         for status in server_statuses {
-            if matches!(status.status, crate::mcp::types::ConnectionStatus::Connected) {
+            if matches!(
+                status.status,
+                crate::mcp::types::ConnectionStatus::Connected
+            ) {
                 for tool in status.tools {
-                    mcp_tools.push(Self::convert_mcp_tool_to_definition(&status.id, &status.name, &tool));
+                    mcp_tools.push(Self::convert_mcp_tool_to_definition(
+                        &status.id,
+                        &status.name,
+                        &tool,
+                    ));
                 }
             }
         }
@@ -91,13 +103,20 @@ impl MessageBuilder {
         mcp_tools
     }
 
-    fn convert_mcp_tool_to_definition(server_id: &str, server_name: &str, mcp_tool: &MCPTool) -> ToolDefinition {
+    fn convert_mcp_tool_to_definition(
+        server_id: &str,
+        server_name: &str,
+        mcp_tool: &MCPTool,
+    ) -> ToolDefinition {
         let safe_server_id = server_id.replace("-", "_").replace(":", "_");
         let safe_tool_name = mcp_tool.name.replace("-", "_").replace(":", "_");
 
         ToolDefinition {
             name: format!("mcp_{}_{}", safe_server_id, safe_tool_name),
-            description: format!("{} (MCP tool from server '{}')", mcp_tool.description, server_name),
+            description: format!(
+                "{} (MCP tool from server '{}')",
+                mcp_tool.description, server_name
+            ),
             input_schema: mcp_tool.input_schema.clone(),
         }
     }

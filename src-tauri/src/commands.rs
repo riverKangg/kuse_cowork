@@ -2,7 +2,7 @@ use crate::agent::{AgentConfig, AgentContent, AgentEvent, AgentLoop, AgentMessag
 use crate::claude::{ClaudeClient, Message as ClaudeMessage};
 use crate::database::{Conversation, Database, Message, PlanStep, Settings, Task, TaskMessage};
 use crate::mcp::{MCPManager, MCPServerConfig, MCPServerStatus, MCPToolCall, MCPToolResult};
-use crate::skills::{SkillMetadata, get_available_skills};
+use crate::skills::{get_available_skills, SkillMetadata};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{command, Emitter, State, Window};
@@ -55,7 +55,10 @@ pub fn get_platform() -> String {
 #[command]
 pub fn get_settings(state: State<'_, Arc<AppState>>) -> Result<Settings, CommandError> {
     let settings = state.db.get_settings()?;
-    println!("[get_settings] api_key length from db: {}", settings.api_key.len());
+    println!(
+        "[get_settings] api_key length from db: {}",
+        settings.api_key.len()
+    );
     Ok(settings)
 }
 
@@ -69,9 +72,11 @@ pub async fn save_settings(
     println!("[save_settings] api_key length: {}", settings.api_key.len());
     // Show first and last 10 chars for debugging
     if settings.api_key.len() > 20 {
-        println!("[save_settings] api_key preview: {}...{}",
+        println!(
+            "[save_settings] api_key preview: {}...{}",
             &settings.api_key[..10],
-            &settings.api_key[settings.api_key.len()-10..]);
+            &settings.api_key[settings.api_key.len() - 10..]
+        );
     }
 
     state.db.save_settings(&settings)?;
@@ -99,10 +104,16 @@ pub async fn test_connection(state: State<'_, Arc<AppState>>) -> Result<String, 
     // Debug logging
     println!("[test_connection] model: {}", settings.model);
     println!("[test_connection] base_url: {}", settings.base_url);
-    println!("[test_connection] api_key length: {}", settings.api_key.len());
+    println!(
+        "[test_connection] api_key length: {}",
+        settings.api_key.len()
+    );
     println!("[test_connection] provider: {}", settings.get_provider());
-    println!("[test_connection] is_local_provider: {}, allows_empty_api_key: {}",
-        settings.is_local_provider(), settings.allows_empty_api_key());
+    println!(
+        "[test_connection] is_local_provider: {}, allows_empty_api_key: {}",
+        settings.is_local_provider(),
+        settings.allows_empty_api_key()
+    );
 
     if settings.api_key.is_empty() && !settings.allows_empty_api_key() {
         return Ok("No API key configured".to_string());
@@ -120,7 +131,9 @@ pub async fn test_connection(state: State<'_, Arc<AppState>>) -> Result<String, 
 
         match llm_client.check_connection().await {
             Ok(true) => Ok("success".to_string()),
-            Ok(false) => Ok("Error: Cannot connect to local service, please ensure it is running".to_string()),
+            Ok(false) => Ok(
+                "Error: Cannot connect to local service, please ensure it is running".to_string(),
+            ),
             Err(e) => Ok(format!("Error: {}", e)),
         }
     } else {
@@ -136,7 +149,10 @@ pub async fn test_connection(state: State<'_, Arc<AppState>>) -> Result<String, 
                     content: "Hi".to_string(),
                 }];
 
-                match client.send_message(messages, &settings.model, 10, None).await {
+                match client
+                    .send_message(messages, &settings.model, 10, None)
+                    .await
+                {
                     Ok(_) => Ok("success".to_string()),
                     Err(e) => Ok(format!("Error: {}", e)),
                 }
@@ -158,7 +174,10 @@ pub async fn test_connection(state: State<'_, Arc<AppState>>) -> Result<String, 
                 }];
 
                 // Send a minimal test request
-                match llm_client.send_message(test_messages, &settings.model, 10, None).await {
+                match llm_client
+                    .send_message(test_messages, &settings.model, 10, None)
+                    .await
+                {
                     Ok(_) => Ok("success".to_string()),
                     Err(e) => Ok(format!("Error: {}", e)),
                 }
@@ -177,7 +196,10 @@ pub async fn test_connection(state: State<'_, Arc<AppState>>) -> Result<String, 
                     content: "Hi".to_string(),
                 }];
 
-                match llm_client.send_message(test_messages, &settings.model, 10, None).await {
+                match llm_client
+                    .send_message(test_messages, &settings.model, 10, None)
+                    .await
+                {
                     Ok(_) => Ok("success".to_string()),
                     Err(e) => Ok(format!("Error: {}", e)),
                 }
@@ -197,7 +219,10 @@ pub async fn test_connection(state: State<'_, Arc<AppState>>) -> Result<String, 
                 }];
 
                 // Try to send a minimal test request
-                match llm_client.send_message(test_messages, &settings.model, 10, None).await {
+                match llm_client
+                    .send_message(test_messages, &settings.model, 10, None)
+                    .await
+                {
                     Ok(_) => Ok("success".to_string()),
                     Err(e) => {
                         // If sending fails, try simple connection check (for services that support it)
@@ -227,7 +252,10 @@ pub fn create_conversation(
     title: String,
 ) -> Result<Conversation, CommandError> {
     let id = uuid::Uuid::new_v4().to_string();
-    state.db.create_conversation(&id, &title).map_err(Into::into)
+    state
+        .db
+        .create_conversation(&id, &title)
+        .map_err(Into::into)
 }
 
 #[command]
@@ -236,7 +264,10 @@ pub fn update_conversation_title(
     id: String,
     title: String,
 ) -> Result<(), CommandError> {
-    state.db.update_conversation_title(&id, &title).map_err(Into::into)
+    state
+        .db
+        .update_conversation_title(&id, &title)
+        .map_err(Into::into)
 }
 
 #[command]
@@ -363,7 +394,9 @@ pub async fn send_chat_message(
                     tx,
                 )
                 .await
-                .map_err(|e| CommandError { message: e.to_string() })?
+                .map_err(|e| CommandError {
+                    message: e.to_string(),
+                })?
         }
     };
 
@@ -392,7 +425,9 @@ pub async fn send_chat_message(
         } else {
             content.clone()
         };
-        state.db.update_conversation_title(&conversation_id, &title)?;
+        state
+            .db
+            .update_conversation_title(&conversation_id, &title)?;
     }
 
     Ok(response)
@@ -405,9 +440,16 @@ pub enum ChatEvent {
     #[serde(rename = "text")]
     Text { content: String },
     #[serde(rename = "tool_start")]
-    ToolStart { tool: String, input: serde_json::Value },
+    ToolStart {
+        tool: String,
+        input: serde_json::Value,
+    },
     #[serde(rename = "tool_end")]
-    ToolEnd { tool: String, result: String, success: bool },
+    ToolEnd {
+        tool: String,
+        result: String,
+        success: bool,
+    },
     #[serde(rename = "done")]
     Done { final_text: String },
 }
@@ -447,11 +489,19 @@ pub async fn run_agent(
         if !mcp_servers.is_empty() {
             mcp_info.push_str("\nMCP (Model Context Protocol) Tools:\n");
             for server in mcp_servers {
-                if matches!(server.status, crate::mcp::types::ConnectionStatus::Connected) {
-                    mcp_info.push_str(&format!("Server '{}' is connected with tools:\n", server.id));
+                if matches!(
+                    server.status,
+                    crate::mcp::types::ConnectionStatus::Connected
+                ) {
+                    mcp_info.push_str(&format!(
+                        "Server '{}' is connected with tools:\n",
+                        server.id
+                    ));
                     for tool in server.tools {
-                        mcp_info.push_str(&format!("  - {}: {} (use format: {}:{})\n",
-                            tool.name, tool.description, server.id, tool.name));
+                        mcp_info.push_str(&format!(
+                            "  - {}: {} (use format: {}:{})\n",
+                            tool.name, tool.description, server.id, tool.name
+                        ));
                     }
                 }
             }
@@ -519,7 +569,8 @@ pub async fn send_chat_with_tools(
     request: EnhancedChatRequest,
 ) -> Result<String, CommandError> {
     use crate::agent::{
-        AgentConfig, AgentContent, AgentMessage, ContentBlock, MessageBuilder, ToolExecutor, ToolUse,
+        AgentConfig, AgentContent, AgentMessage, ContentBlock, MessageBuilder, ToolExecutor,
+        ToolUse,
     };
     use futures::StreamExt;
 
@@ -533,9 +584,12 @@ pub async fn send_chat_with_tools(
 
     // Add user message to database
     let user_msg_id = uuid::Uuid::new_v4().to_string();
-    state
-        .db
-        .add_message(&user_msg_id, &request.conversation_id, "user", &request.content)?;
+    state.db.add_message(
+        &user_msg_id,
+        &request.conversation_id,
+        "user",
+        &request.content,
+    )?;
 
     // Get conversation history
     let db_messages = state.db.get_messages(&request.conversation_id)?;
@@ -564,7 +618,8 @@ pub async fn send_chat_with_tools(
                         content: m.content.clone(),
                     })
                     .collect();
-                let client = ClaudeClient::new(settings.api_key.clone(), Some(settings.base_url.clone()));
+                let client =
+                    ClaudeClient::new(settings.api_key.clone(), Some(settings.base_url.clone()));
                 client
                     .send_message_stream(
                         claude_messages,
@@ -601,18 +656,28 @@ pub async fn send_chat_with_tools(
                         tx,
                     )
                     .await
-                    .map_err(|e| CommandError { message: e.to_string() })?
+                    .map_err(|e| CommandError {
+                        message: e.to_string(),
+                    })?
             }
         };
 
         let _ = emit_task.await;
-        let _ = window.emit("chat-event", ChatEvent::Done { final_text: response.clone() });
+        let _ = window.emit(
+            "chat-event",
+            ChatEvent::Done {
+                final_text: response.clone(),
+            },
+        );
 
         // Save assistant response
         let assistant_msg_id = uuid::Uuid::new_v4().to_string();
-        state
-            .db
-            .add_message(&assistant_msg_id, &request.conversation_id, "assistant", &response)?;
+        state.db.add_message(
+            &assistant_msg_id,
+            &request.conversation_id,
+            "assistant",
+            &response,
+        )?;
 
         return Ok(response);
     }
@@ -620,8 +685,8 @@ pub async fn send_chat_with_tools(
     // Enhanced chat with tools - use AgentLoop which supports multiple providers
     use crate::llm_client::ProviderConfig;
 
-    let tool_executor = ToolExecutor::new(request.project_path.clone())
-        .with_mcp_manager(state.mcp_manager.clone());
+    let tool_executor =
+        ToolExecutor::new(request.project_path.clone()).with_mcp_manager(state.mcp_manager.clone());
 
     // Build agent-style config for tools
     let mut config = AgentConfig {
@@ -636,24 +701,35 @@ pub async fn send_chat_with_tools(
     if !mcp_servers.is_empty() {
         mcp_info.push_str("\nMCP (Model Context Protocol) Tools:\n");
         for server in mcp_servers {
-            if matches!(server.status, crate::mcp::types::ConnectionStatus::Connected) {
-                mcp_info.push_str(&format!("Server '{}' is connected with tools:\n", server.id));
+            if matches!(
+                server.status,
+                crate::mcp::types::ConnectionStatus::Connected
+            ) {
+                mcp_info.push_str(&format!(
+                    "Server '{}' is connected with tools:\n",
+                    server.id
+                ));
                 for tool in server.tools {
-                    mcp_info.push_str(&format!("  - {}: {} (use format: {}:{})\n",
-                        tool.name, tool.description, server.id, tool.name));
+                    mcp_info.push_str(&format!(
+                        "  - {}: {} (use format: {}:{})\n",
+                        tool.name, tool.description, server.id, tool.name
+                    ));
                 }
             }
         }
     }
 
-    config.system_prompt = format!(r#"You are Kuse Cowork, an AI assistant that helps users for non dev work.
+    config.system_prompt = format!(
+        r#"You are Kuse Cowork, an AI assistant that helps users for non dev work.
 
 You have access to tools that allow you to read and write files, execute commands, and search through codebases.
 
 When the user asks you to do something that requires accessing files or running commands, use the appropriate tools.
 For simple questions or conversations, respond directly without using tools.
 
-Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_info);
+Be concise and helpful. Explain what you're doing when using tools.{}"#,
+        mcp_info
+    );
 
     let message_builder = MessageBuilder::new(
         config.clone(),
@@ -694,7 +770,8 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
     );
 
     // For Google: track thoughtSignature per function call across iterations (required for Gemini 3)
-    let mut google_thought_signatures: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut google_thought_signatures: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
 
     loop {
         turn += 1;
@@ -707,17 +784,28 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
 
         let response = if use_google_format {
             // Google Gemini format request (pass thought signatures for Gemini 3 function calling)
-            let google_request = convert_to_google_format(&api_request, &settings.model, settings.max_tokens, &google_thought_signatures);
+            let google_request = convert_to_google_format(
+                &api_request,
+                &settings.model,
+                settings.max_tokens,
+                &google_thought_signatures,
+            );
             let base = provider_config.base_url.trim_end_matches('/');
-            let url = format!("{}/v1beta/models/{}:streamGenerateContent?alt=sse", base, settings.model);
+            let url = format!(
+                "{}/v1beta/models/{}:streamGenerateContent?alt=sse",
+                base, settings.model
+            );
 
-            client.post(&url)
+            client
+                .post(&url)
                 .header("Content-Type", "application/json")
                 .header("x-goog-api-key", &settings.api_key)
                 .json(&google_request)
                 .send()
                 .await
-                .map_err(|e| CommandError { message: format!("HTTP error: {}", e) })?
+                .map_err(|e| CommandError {
+                    message: format!("HTTP error: {}", e),
+                })?
         } else if use_openai_format {
             // OpenAI format request
             let openai_request = convert_to_openai_format(&api_request, &settings.model);
@@ -728,8 +816,7 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
                 format!("{}/v1/chat/completions", base)
             };
 
-            let mut req = client.post(&url)
-                .header("Content-Type", "application/json");
+            let mut req = client.post(&url).header("Content-Type", "application/json");
 
             if !settings.api_key.is_empty() {
                 req = req.header("Authorization", format!("Bearer {}", settings.api_key));
@@ -749,23 +836,32 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
             req.json(&openai_request)
                 .send()
                 .await
-                .map_err(|e| CommandError { message: format!("HTTP error: {}", e) })?
+                .map_err(|e| CommandError {
+                    message: format!("HTTP error: {}", e),
+                })?
         } else {
             // Anthropic format request
             client
-                .post(format!("{}/v1/messages", provider_config.base_url.trim_end_matches('/')))
+                .post(format!(
+                    "{}/v1/messages",
+                    provider_config.base_url.trim_end_matches('/')
+                ))
                 .header("Content-Type", "application/json")
                 .header("x-api-key", &settings.api_key)
                 .header("anthropic-version", "2023-06-01")
                 .json(&api_request)
                 .send()
                 .await
-                .map_err(|e| CommandError { message: format!("HTTP error: {}", e) })?
+                .map_err(|e| CommandError {
+                    message: format!("HTTP error: {}", e),
+                })?
         };
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(CommandError { message: format!("API error: {}", error_text) });
+            return Err(CommandError {
+                message: format!("API error: {}", error_text),
+            });
         }
 
         // Handle streaming response based on provider format
@@ -777,7 +873,9 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
         if use_google_format {
             // Google Gemini streaming format (SSE with alt=sse)
             while let Some(chunk) = stream.next().await {
-                let chunk = chunk.map_err(|e| CommandError { message: format!("Stream error: {}", e) })?;
+                let chunk = chunk.map_err(|e| CommandError {
+                    message: format!("Stream error: {}", e),
+                })?;
                 buffer.push_str(&String::from_utf8_lossy(&chunk));
 
                 while let Some(pos) = buffer.find('\n') {
@@ -797,36 +895,52 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
 
                     if let Ok(event) = serde_json::from_str::<serde_json::Value>(json_str) {
                         // Extract text and function calls from candidates
-                        if let Some(candidates) = event.get("candidates").and_then(|v| v.as_array()) {
+                        if let Some(candidates) = event.get("candidates").and_then(|v| v.as_array())
+                        {
                             for candidate in candidates {
-                                if let Some(parts) = candidate.get("content")
+                                if let Some(parts) = candidate
+                                    .get("content")
                                     .and_then(|c| c.get("parts"))
                                     .and_then(|p| p.as_array())
                                 {
                                     for part in parts {
                                         // Handle text
-                                        if let Some(text) = part.get("text").and_then(|v| v.as_str()) {
+                                        if let Some(text) =
+                                            part.get("text").and_then(|v| v.as_str())
+                                        {
                                             if !text.is_empty() {
                                                 accumulated_text.push_str(text);
-                                                let _ = window.emit("chat-event", ChatEvent::Text {
-                                                    content: accumulated_text.clone(),
-                                                });
+                                                let _ = window.emit(
+                                                    "chat-event",
+                                                    ChatEvent::Text {
+                                                        content: accumulated_text.clone(),
+                                                    },
+                                                );
                                             }
                                         }
                                         // Handle function calls (with thoughtSignature for Gemini 3)
                                         if let Some(fc) = part.get("functionCall") {
-                                            let name = fc.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                                            let args = fc.get("args").cloned().unwrap_or(serde_json::json!({}));
+                                            let name = fc
+                                                .get("name")
+                                                .and_then(|v| v.as_str())
+                                                .unwrap_or("")
+                                                .to_string();
+                                            let args = fc
+                                                .get("args")
+                                                .cloned()
+                                                .unwrap_or(serde_json::json!({}));
                                             let id = format!("fc_{}", uuid::Uuid::new_v4());
 
                                             // Capture thoughtSignature from the same part (required for Gemini 3)
-                                            let thought_signature = part.get("thoughtSignature")
+                                            let thought_signature = part
+                                                .get("thoughtSignature")
                                                 .and_then(|v| v.as_str())
                                                 .map(|s| s.to_string());
 
                                             // Also store in map for lookup when building functionResponse
                                             if let Some(ref sig) = thought_signature {
-                                                google_thought_signatures.insert(id.clone(), sig.clone());
+                                                google_thought_signatures
+                                                    .insert(id.clone(), sig.clone());
                                             }
 
                                             tool_uses.push(ToolUse {
@@ -836,10 +950,13 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
                                                 thought_signature,
                                             });
 
-                                            let _ = window.emit("chat-event", ChatEvent::ToolStart {
-                                                tool: name,
-                                                input: args,
-                                            });
+                                            let _ = window.emit(
+                                                "chat-event",
+                                                ChatEvent::ToolStart {
+                                                    tool: name,
+                                                    input: args,
+                                                },
+                                            );
                                         }
                                     }
                                 }
@@ -850,10 +967,13 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
             }
         } else if use_openai_format {
             // OpenAI streaming format
-            let mut current_tool_calls: std::collections::HashMap<i64, (String, String, String)> = std::collections::HashMap::new();
+            let mut current_tool_calls: std::collections::HashMap<i64, (String, String, String)> =
+                std::collections::HashMap::new();
 
             while let Some(chunk) = stream.next().await {
-                let chunk = chunk.map_err(|e| CommandError { message: format!("Stream error: {}", e) })?;
+                let chunk = chunk.map_err(|e| CommandError {
+                    message: format!("Stream error: {}", e),
+                })?;
                 buffer.push_str(&String::from_utf8_lossy(&chunk));
 
                 while let Some(pos) = buffer.find('\n') {
@@ -870,30 +990,53 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
                                 for choice in choices {
                                     if let Some(delta) = choice.get("delta") {
                                         // Handle text content
-                                        if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
+                                        if let Some(content) =
+                                            delta.get("content").and_then(|v| v.as_str())
+                                        {
                                             accumulated_text.push_str(content);
-                                            let _ = window.emit("chat-event", ChatEvent::Text {
-                                                content: accumulated_text.clone(),
-                                            });
+                                            let _ = window.emit(
+                                                "chat-event",
+                                                ChatEvent::Text {
+                                                    content: accumulated_text.clone(),
+                                                },
+                                            );
                                         }
 
                                         // Handle tool_calls
-                                        if let Some(tcs) = delta.get("tool_calls").and_then(|v| v.as_array()) {
+                                        if let Some(tcs) =
+                                            delta.get("tool_calls").and_then(|v| v.as_array())
+                                        {
                                             for tc in tcs {
-                                                let index = tc.get("index").and_then(|v| v.as_i64()).unwrap_or(0);
+                                                let index = tc
+                                                    .get("index")
+                                                    .and_then(|v| v.as_i64())
+                                                    .unwrap_or(0);
 
-                                                let entry = current_tool_calls.entry(index).or_insert_with(|| {
-                                                    (String::new(), String::new(), String::new())
-                                                });
+                                                let entry = current_tool_calls
+                                                    .entry(index)
+                                                    .or_insert_with(|| {
+                                                        (
+                                                            String::new(),
+                                                            String::new(),
+                                                            String::new(),
+                                                        )
+                                                    });
 
-                                                if let Some(id) = tc.get("id").and_then(|v| v.as_str()) {
+                                                if let Some(id) =
+                                                    tc.get("id").and_then(|v| v.as_str())
+                                                {
                                                     entry.0 = id.to_string();
                                                 }
                                                 if let Some(func) = tc.get("function") {
-                                                    if let Some(name) = func.get("name").and_then(|v| v.as_str()) {
+                                                    if let Some(name) =
+                                                        func.get("name").and_then(|v| v.as_str())
+                                                    {
                                                         entry.1 = name.to_string();
                                                     }
-                                                    if let Some(args) = func.get("arguments").and_then(|v| v.as_str()) {
+                                                    if let Some(args) = func
+                                                        .get("arguments")
+                                                        .and_then(|v| v.as_str())
+                                                    {
                                                         entry.2.push_str(args);
                                                     }
                                                 }
@@ -902,12 +1045,17 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
                                     }
 
                                     // Check if finished
-                                    if choice.get("finish_reason").and_then(|v| v.as_str()).is_some() {
+                                    if choice
+                                        .get("finish_reason")
+                                        .and_then(|v| v.as_str())
+                                        .is_some()
+                                    {
                                         // Convert collected tool_calls to ToolUse
                                         for (id, name, args) in current_tool_calls.values() {
                                             if !id.is_empty() && !name.is_empty() {
-                                                let input: serde_json::Value = serde_json::from_str(args)
-                                                    .unwrap_or(serde_json::json!({}));
+                                                let input: serde_json::Value =
+                                                    serde_json::from_str(args)
+                                                        .unwrap_or(serde_json::json!({}));
 
                                                 tool_uses.push(ToolUse {
                                                     id: id.clone(),
@@ -917,10 +1065,13 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
                                                 });
 
                                                 // Emit tool start
-                                                let _ = window.emit("chat-event", ChatEvent::ToolStart {
-                                                    tool: name.clone(),
-                                                    input,
-                                                });
+                                                let _ = window.emit(
+                                                    "chat-event",
+                                                    ChatEvent::ToolStart {
+                                                        tool: name.clone(),
+                                                        input,
+                                                    },
+                                                );
                                             }
                                         }
                                     }
@@ -937,7 +1088,9 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
             let mut current_tool_name = String::new();
 
             while let Some(chunk) = stream.next().await {
-                let chunk = chunk.map_err(|e| CommandError { message: format!("Stream error: {}", e) })?;
+                let chunk = chunk.map_err(|e| CommandError {
+                    message: format!("Stream error: {}", e),
+                })?;
                 buffer.push_str(&String::from_utf8_lossy(&chunk));
 
                 while let Some(pos) = buffer.find('\n') {
@@ -950,12 +1103,15 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
                         }
 
                         if let Ok(event) = serde_json::from_str::<serde_json::Value>(data) {
-                            let event_type = event.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                            let event_type =
+                                event.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
                             match event_type {
                                 "content_block_start" => {
                                     if let Some(block) = event.get("content_block") {
-                                        if block.get("type").and_then(|v| v.as_str()) == Some("tool_use") {
+                                        if block.get("type").and_then(|v| v.as_str())
+                                            == Some("tool_use")
+                                        {
                                             current_tool_id = block
                                                 .get("id")
                                                 .and_then(|v| v.as_str())
@@ -972,17 +1128,27 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
                                 }
                                 "content_block_delta" => {
                                     if let Some(delta) = event.get("delta") {
-                                        let delta_type = delta.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                                        let delta_type = delta
+                                            .get("type")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("");
 
                                         if delta_type == "text_delta" {
-                                            if let Some(text) = delta.get("text").and_then(|v| v.as_str()) {
+                                            if let Some(text) =
+                                                delta.get("text").and_then(|v| v.as_str())
+                                            {
                                                 accumulated_text.push_str(text);
-                                                let _ = window.emit("chat-event", ChatEvent::Text {
-                                                    content: accumulated_text.clone(),
-                                                });
+                                                let _ = window.emit(
+                                                    "chat-event",
+                                                    ChatEvent::Text {
+                                                        content: accumulated_text.clone(),
+                                                    },
+                                                );
                                             }
                                         } else if delta_type == "input_json_delta" {
-                                            if let Some(partial) = delta.get("partial_json").and_then(|v| v.as_str()) {
+                                            if let Some(partial) =
+                                                delta.get("partial_json").and_then(|v| v.as_str())
+                                            {
                                                 current_tool_input.push_str(partial);
                                             }
                                         }
@@ -990,8 +1156,9 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
                                 }
                                 "content_block_stop" => {
                                     if !current_tool_id.is_empty() {
-                                        let input: serde_json::Value = serde_json::from_str(&current_tool_input)
-                                            .unwrap_or(serde_json::json!({}));
+                                        let input: serde_json::Value =
+                                            serde_json::from_str(&current_tool_input)
+                                                .unwrap_or(serde_json::json!({}));
 
                                         tool_uses.push(ToolUse {
                                             id: current_tool_id.clone(),
@@ -1001,10 +1168,13 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
                                         });
 
                                         // Emit tool start
-                                        let _ = window.emit("chat-event", ChatEvent::ToolStart {
-                                            tool: current_tool_name.clone(),
-                                            input,
-                                        });
+                                        let _ = window.emit(
+                                            "chat-event",
+                                            ChatEvent::ToolStart {
+                                                tool: current_tool_name.clone(),
+                                                input,
+                                            },
+                                        );
 
                                         current_tool_id.clear();
                                         current_tool_name.clear();
@@ -1030,7 +1200,9 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
         } else {
             let mut blocks = Vec::new();
             if !accumulated_text.is_empty() {
-                blocks.push(ContentBlock::Text { text: accumulated_text });
+                blocks.push(ContentBlock::Text {
+                    text: accumulated_text,
+                });
             }
             for tu in &tool_uses {
                 blocks.push(ContentBlock::ToolUse {
@@ -1060,11 +1232,14 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
             let result = tool_executor.execute(tool_use).await;
 
             // Emit tool end
-            let _ = window.emit("chat-event", ChatEvent::ToolEnd {
-                tool: tool_use.name.clone(),
-                result: result.content.clone(),
-                success: result.is_error.is_none(),
-            });
+            let _ = window.emit(
+                "chat-event",
+                ChatEvent::ToolEnd {
+                    tool: tool_use.name.clone(),
+                    result: result.content.clone(),
+                    success: result.is_error.is_none(),
+                },
+            );
 
             tool_results.push(result);
         }
@@ -1077,13 +1252,21 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
     }
 
     // Emit done
-    let _ = window.emit("chat-event", ChatEvent::Done { final_text: final_text.clone() });
+    let _ = window.emit(
+        "chat-event",
+        ChatEvent::Done {
+            final_text: final_text.clone(),
+        },
+    );
 
     // Save final assistant response to database
     let assistant_msg_id = uuid::Uuid::new_v4().to_string();
-    state
-        .db
-        .add_message(&assistant_msg_id, &request.conversation_id, "assistant", &final_text)?;
+    state.db.add_message(
+        &assistant_msg_id,
+        &request.conversation_id,
+        "assistant",
+        &final_text,
+    )?;
 
     // Update conversation title if this is the first exchange
     if db_messages.len() == 1 {
@@ -1092,7 +1275,9 @@ Be concise and helpful. Explain what you're doing when using tools.{}"#, mcp_inf
         } else {
             request.content.clone()
         };
-        state.db.update_conversation_title(&request.conversation_id, &title)?;
+        state
+            .db
+            .update_conversation_title(&request.conversation_id, &title)?;
     }
 
     Ok(final_text)
@@ -1117,7 +1302,10 @@ pub fn create_task(
     project_path: Option<String>,
 ) -> Result<Task, CommandError> {
     let id = uuid::Uuid::new_v4().to_string();
-    state.db.create_task(&id, &title, &description, project_path.as_deref()).map_err(Into::into)
+    state
+        .db
+        .create_task(&id, &title, &description, project_path.as_deref())
+        .map_err(Into::into)
 }
 
 #[command]
@@ -1154,7 +1342,9 @@ pub async fn run_task_agent(
 
     // Save new user message
     let user_msg_id = uuid::Uuid::new_v4().to_string();
-    state.db.add_task_message(&user_msg_id, &request.task_id, "user", &request.message)?;
+    state
+        .db
+        .add_task_message(&user_msg_id, &request.task_id, "user", &request.message)?;
 
     // Update task status to running
     state.db.update_task_status(&request.task_id, "running")?;
@@ -1168,11 +1358,19 @@ pub async fn run_task_agent(
     if !mcp_servers.is_empty() {
         mcp_info.push_str("\nMCP (Model Context Protocol) Tools:\n");
         for server in mcp_servers {
-            if matches!(server.status, crate::mcp::types::ConnectionStatus::Connected) {
-                mcp_info.push_str(&format!("Server '{}' is connected with tools:\n", server.id));
+            if matches!(
+                server.status,
+                crate::mcp::types::ConnectionStatus::Connected
+            ) {
+                mcp_info.push_str(&format!(
+                    "Server '{}' is connected with tools:\n",
+                    server.id
+                ));
                 for tool in server.tools {
-                    mcp_info.push_str(&format!("  - {}: {} (use format: {}:{})\n",
-                        tool.name, tool.description, server.id, tool.name));
+                    mcp_info.push_str(&format!(
+                        "  - {}: {} (use format: {}:{})\n",
+                        tool.name, tool.description, server.id, tool.name
+                    ));
                 }
             }
         }
@@ -1242,11 +1440,14 @@ pub async fn run_task_agent(
                     }
                 }
                 AgentEvent::Plan { steps } => {
-                    let plan_steps: Vec<PlanStep> = steps.iter().map(|s| PlanStep {
-                        step: s.step,
-                        description: s.description.clone(),
-                        status: "pending".to_string(),
-                    }).collect();
+                    let plan_steps: Vec<PlanStep> = steps
+                        .iter()
+                        .map(|s| PlanStep {
+                            step: s.step,
+                            description: s.description.clone(),
+                            status: "pending".to_string(),
+                        })
+                        .collect();
                     let _ = db.update_task_plan(&task_id, &plan_steps);
                 }
                 AgentEvent::StepStart { step } => {
@@ -1276,10 +1477,18 @@ pub async fn run_task_agent(
     let _ = emit_task.await;
 
     // Save assistant message with accumulated text
-    let final_text = accumulated_text.lock().map(|t| t.clone()).unwrap_or_default();
+    let final_text = accumulated_text
+        .lock()
+        .map(|t| t.clone())
+        .unwrap_or_default();
     if !final_text.is_empty() {
         let assistant_msg_id = uuid::Uuid::new_v4().to_string();
-        let _ = db_for_msg.add_task_message(&assistant_msg_id, &task_id_for_msg, "assistant", &final_text);
+        let _ = db_for_msg.add_task_message(
+            &assistant_msg_id,
+            &task_id_for_msg,
+            "assistant",
+            &final_text,
+        );
     }
 
     // Always ensure task status is updated at the end
@@ -1313,9 +1522,11 @@ pub fn get_skills_list() -> Vec<SkillMetadata> {
 
 // MCP commands
 #[command]
-pub fn list_mcp_servers(state: State<'_, Arc<AppState>>) -> Result<Vec<MCPServerConfig>, CommandError> {
+pub fn list_mcp_servers(
+    state: State<'_, Arc<AppState>>,
+) -> Result<Vec<MCPServerConfig>, CommandError> {
     state.db.get_mcp_servers().map_err(|e| CommandError {
-        message: format!("Failed to get MCP servers: {}", e)
+        message: format!("Failed to get MCP servers: {}", e),
     })
 }
 
@@ -1325,17 +1536,14 @@ pub fn save_mcp_server(
     config: MCPServerConfig,
 ) -> Result<(), CommandError> {
     state.db.save_mcp_server(&config).map_err(|e| CommandError {
-        message: format!("Failed to save MCP server: {}", e)
+        message: format!("Failed to save MCP server: {}", e),
     })
 }
 
 #[command]
-pub fn delete_mcp_server(
-    state: State<'_, Arc<AppState>>,
-    id: String,
-) -> Result<(), CommandError> {
+pub fn delete_mcp_server(state: State<'_, Arc<AppState>>, id: String) -> Result<(), CommandError> {
     state.db.delete_mcp_server(&id).map_err(|e| CommandError {
-        message: format!("Failed to delete MCP server: {}", e)
+        message: format!("Failed to delete MCP server: {}", e),
     })
 }
 
@@ -1346,23 +1554,32 @@ pub async fn connect_mcp_server(
 ) -> Result<(), CommandError> {
     // Get server config from database
     let config = match state.db.get_mcp_server(&id).map_err(|e| CommandError {
-        message: format!("Failed to get server config: {}", e)
+        message: format!("Failed to get server config: {}", e),
     })? {
         Some(config) => config,
-        None => return Err(CommandError {
-            message: "MCP server not found".to_string()
-        }),
+        None => {
+            return Err(CommandError {
+                message: "MCP server not found".to_string(),
+            })
+        }
     };
 
     // Connect using MCP manager
-    state.mcp_manager.connect_server(&config).await.map_err(|e| CommandError {
-        message: format!("Failed to connect to MCP server: {}", e)
-    })?;
+    state
+        .mcp_manager
+        .connect_server(&config)
+        .await
+        .map_err(|e| CommandError {
+            message: format!("Failed to connect to MCP server: {}", e),
+        })?;
 
     // Update enabled status in database
-    state.db.update_mcp_server_enabled(&id, true).map_err(|e| CommandError {
-        message: format!("Failed to update server status: {}", e)
-    })
+    state
+        .db
+        .update_mcp_server_enabled(&id, true)
+        .map_err(|e| CommandError {
+            message: format!("Failed to update server status: {}", e),
+        })
 }
 
 #[command]
@@ -1374,9 +1591,12 @@ pub async fn disconnect_mcp_server(
     state.mcp_manager.disconnect_server(&id).await;
 
     // Update enabled status in database
-    state.db.update_mcp_server_enabled(&id, false).map_err(|e| CommandError {
-        message: format!("Failed to update server status: {}", e)
-    })
+    state
+        .db
+        .update_mcp_server_enabled(&id, false)
+        .map_err(|e| CommandError {
+            message: format!("Failed to update server status: {}", e),
+        })
 }
 
 #[command]
@@ -1485,16 +1705,20 @@ fn convert_to_openai_format(
     }
 
     // Convert tools definition
-    let tools: Vec<serde_json::Value> = request.tools.iter().map(|tool| {
-        serde_json::json!({
-            "type": "function",
-            "function": {
-                "name": tool.name,
-                "description": tool.description,
-                "parameters": tool.input_schema
-            }
+    let tools: Vec<serde_json::Value> = request
+        .tools
+        .iter()
+        .map(|tool| {
+            serde_json::json!({
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.input_schema
+                }
+            })
         })
-    }).collect();
+        .collect();
 
     let mut openai_request = serde_json::json!({
         "model": request.model,
@@ -1505,7 +1729,9 @@ fn convert_to_openai_format(
     // Use correct max tokens parameter based on model
     let model_lower = model.to_lowercase();
     let is_legacy = model_lower.contains("gpt-3.5")
-        || (model_lower.contains("gpt-4") && !model_lower.contains("gpt-4o") && !model_lower.contains("gpt-4-turbo"));
+        || (model_lower.contains("gpt-4")
+            && !model_lower.contains("gpt-4o")
+            && !model_lower.contains("gpt-4-turbo"));
 
     if is_legacy {
         openai_request["max_tokens"] = serde_json::json!(request.max_tokens);
@@ -1514,9 +1740,13 @@ fn convert_to_openai_format(
     }
 
     // Only add temperature for non-reasoning models (o1, o3, gpt-5 don't support custom temperature)
-    let is_reasoning = model_lower.starts_with("o1") || model_lower.starts_with("o3") || model_lower.starts_with("gpt-5")
-        || model_lower.contains("-o1") || model_lower.contains("-o3")
-        || model_lower.contains("o1-") || model_lower.contains("o3-");
+    let is_reasoning = model_lower.starts_with("o1")
+        || model_lower.starts_with("o3")
+        || model_lower.starts_with("gpt-5")
+        || model_lower.contains("-o1")
+        || model_lower.contains("-o3")
+        || model_lower.contains("o1-")
+        || model_lower.contains("o3-");
 
     if !is_reasoning {
         if let Some(temp) = request.temperature {
@@ -1547,7 +1777,11 @@ fn convert_to_google_format(
     // Convert messages to Google format
     for msg in &request.messages {
         // Google uses "user" and "model" instead of "user" and "assistant"
-        let role = if msg.role == "assistant" { "model" } else { &msg.role };
+        let role = if msg.role == "assistant" {
+            "model"
+        } else {
+            &msg.role
+        };
 
         let parts = match &msg.content {
             ApiContent::Text(text) => {
@@ -1581,7 +1815,10 @@ fn convert_to_google_format(
                         }
                         "tool_result" => {
                             // Convert to functionResponse format with thoughtSignature (required for Gemini 3)
-                            let tool_use_id = block.get("tool_use_id").and_then(|v| v.as_str()).unwrap_or("unknown");
+                            let tool_use_id = block
+                                .get("tool_use_id")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("unknown");
                             let mut fr_part = serde_json::json!({
                                 "functionResponse": {
                                     "name": tool_use_id,
@@ -1612,13 +1849,17 @@ fn convert_to_google_format(
     }
 
     // Convert tools to Google functionDeclarations format
-    let function_declarations: Vec<serde_json::Value> = request.tools.iter().map(|tool| {
-        serde_json::json!({
-            "name": tool.name,
-            "description": tool.description,
-            "parameters": tool.input_schema
+    let function_declarations: Vec<serde_json::Value> = request
+        .tools
+        .iter()
+        .map(|tool| {
+            serde_json::json!({
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.input_schema
+            })
         })
-    }).collect();
+        .collect();
 
     let mut google_request = serde_json::json!({
         "contents": contents,

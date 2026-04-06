@@ -40,10 +40,7 @@ pub fn definition() -> ToolDefinition {
     }
 }
 
-pub fn execute(
-    input: &serde_json::Value,
-    project_path: Option<&str>,
-) -> Result<String, String> {
+pub fn execute(input: &serde_json::Value, project_path: Option<&str>) -> Result<String, String> {
     let pattern = input
         .get("pattern")
         .and_then(|v| v.as_str())
@@ -55,24 +52,16 @@ pub fn execute(
         .or(project_path)
         .unwrap_or(".");
 
-    let file_glob = input
-        .get("glob")
-        .and_then(|v| v.as_str());
+    let file_glob = input.get("glob").and_then(|v| v.as_str());
 
     let case_insensitive = input
         .get("case_insensitive")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let context = input
-        .get("context")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as usize;
+    let context = input.get("context").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
 
-    let limit = input
-        .get("limit")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(50) as usize;
+    let limit = input.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
 
     // Build regex
     let regex = if case_insensitive {
@@ -81,16 +70,34 @@ pub fn execute(
             .build()
     } else {
         regex::Regex::new(pattern)
-    }.map_err(|e| format!("Invalid regex pattern: {}", e))?;
+    }
+    .map_err(|e| format!("Invalid regex pattern: {}", e))?;
 
     let path = Path::new(search_path);
     let mut results: Vec<String> = Vec::new();
     let mut match_count = 0;
 
     if path.is_file() {
-        search_file(path, &regex, context, limit, &mut results, &mut match_count, project_path)?;
+        search_file(
+            path,
+            &regex,
+            context,
+            limit,
+            &mut results,
+            &mut match_count,
+            project_path,
+        )?;
     } else if path.is_dir() {
-        search_directory(path, &regex, file_glob, context, limit, &mut results, &mut match_count, project_path)?;
+        search_directory(
+            path,
+            &regex,
+            file_glob,
+            context,
+            limit,
+            &mut results,
+            &mut match_count,
+            project_path,
+        )?;
     } else {
         return Err(format!("Path not found: {}", search_path));
     }
@@ -178,8 +185,7 @@ fn search_directory(
     let glob_pattern = file_glob.unwrap_or("**/*");
     let full_pattern = format!("{}/{}", path.to_string_lossy(), glob_pattern);
 
-    let entries = glob::glob(&full_pattern)
-        .map_err(|e| format!("Invalid glob pattern: {}", e))?;
+    let entries = glob::glob(&full_pattern).map_err(|e| format!("Invalid glob pattern: {}", e))?;
 
     for entry in entries {
         if results.len() >= limit {
@@ -188,7 +194,15 @@ fn search_directory(
 
         if let Ok(file_path) = entry {
             if file_path.is_file() {
-                search_file(&file_path, regex, context, limit, results, match_count, project_path)?;
+                search_file(
+                    &file_path,
+                    regex,
+                    context,
+                    limit,
+                    results,
+                    match_count,
+                    project_path,
+                )?;
             }
         }
     }
