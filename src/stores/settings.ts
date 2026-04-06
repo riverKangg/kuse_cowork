@@ -229,7 +229,7 @@ const DEFAULT_SETTINGS: Settings = {
 // Get provider ID from model
 export function getProviderFromModel(modelId: string): string {
   const model = AVAILABLE_MODELS.find(m => m.id === modelId);
-  return model?.provider || "anthropic";
+  return model?.provider || "custom";
 }
 
 // Check if a model uses the OpenAI Responses API (GPT-5 series)

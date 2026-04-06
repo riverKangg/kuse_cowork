@@ -61,6 +61,37 @@ impl Settings {
             return self.provider.clone();
         }
 
+        let base_url_lower = self.base_url.to_lowercase();
+
+        // Infer from configured endpoint first when available.
+        if !base_url_lower.is_empty() {
+            if base_url_lower.contains("api.anthropic.com") {
+                return "anthropic".to_string();
+            } else if base_url_lower.contains("api.openai.com") {
+                return "openai".to_string();
+            } else if base_url_lower.contains("generativelanguage.googleapis.com") {
+                return "google".to_string();
+            } else if base_url_lower.contains("api.minimax.chat") {
+                return "minimax".to_string();
+            } else if base_url_lower.contains("localhost:11434") || base_url_lower.contains("127.0.0.1:11434") {
+                return "ollama".to_string();
+            } else if base_url_lower.contains("localhost:1234") || base_url_lower.contains("127.0.0.1:1234") {
+                return "lm-studio".to_string();
+            } else if base_url_lower.contains("openrouter.ai") {
+                return "openrouter".to_string();
+            } else if base_url_lower.contains("api.together.xyz") {
+                return "together".to_string();
+            } else if base_url_lower.contains("api.groq.com") {
+                return "groq".to_string();
+            } else if base_url_lower.contains("api.deepseek.com") {
+                return "deepseek".to_string();
+            } else if base_url_lower.contains("siliconflow.cn") {
+                return "siliconflow".to_string();
+            } else {
+                return "custom".to_string();
+            }
+        }
+
         // Infer from model name
         let model_lower = self.model.to_lowercase();
 
@@ -79,8 +110,8 @@ impl Settings {
             // Ollama format (e.g., llama3.3:latest)
             "ollama".to_string()
         } else {
-            // Default to anthropic
-            "anthropic".to_string()
+            // Unknown models should use the generic OpenAI-compatible flow.
+            "custom".to_string()
         }
     }
 

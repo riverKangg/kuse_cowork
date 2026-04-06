@@ -187,7 +187,7 @@ pub async fn test_connection(state: State<'_, Arc<AppState>>) -> Result<String, 
                 let llm_client = LLMClient::new(
                     settings.api_key.clone(),
                     Some(settings.base_url.clone()),
-                    None,
+                    Some(&provider),
                     Some(&settings.model),
                 );
 
