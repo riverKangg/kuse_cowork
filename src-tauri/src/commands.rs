@@ -70,14 +70,6 @@ pub async fn save_settings(
     println!("[save_settings] model: {}", settings.model);
     println!("[save_settings] base_url: {}", settings.base_url);
     println!("[save_settings] api_key length: {}", settings.api_key.len());
-    // Show first and last 10 chars for debugging
-    if settings.api_key.len() > 20 {
-        println!(
-            "[save_settings] api_key preview: {}...{}",
-            &settings.api_key[..10],
-            &settings.api_key[settings.api_key.len() - 10..]
-        );
-    }
 
     state.db.save_settings(&settings)?;
 
@@ -1525,16 +1517,72 @@ pub fn get_skills_list() -> Vec<SkillMetadata> {
 pub fn list_mcp_servers(
     state: State<'_, Arc<AppState>>,
 ) -> Result<Vec<MCPServerConfig>, CommandError> {
-    state.db.get_mcp_servers().map_err(|e| CommandError {
-        message: format!("Failed to get MCP servers: {}", e),
-    })
+    state
+        .db
+        .get_mcp_servers()
+        .map(|servers| {
+            servers
+                .into_iter()
+                .map(|server| server.sanitized())
+                .collect()
+        })
+        .map_err(|e| CommandError {
+            message: format!("Failed to get MCP servers: {}", e),
+        })
 }
 
 #[command]
 pub fn save_mcp_server(
     state: State<'_, Arc<AppState>>,
-    config: MCPServerConfig,
+    mut config: MCPServerConfig,
 ) -> Result<(), CommandError> {
+    if let Ok(Some(existing)) = state.db.get_mcp_server(&config.id) {
+        match config.auth_type.as_str() {
+            "bearer" => {
+                if config
+                    .bearer_token
+                    .as_ref()
+                    .map_or(true, |value| value.trim().is_empty())
+                {
+                    config.bearer_token = existing.bearer_token;
+                }
+                config.oauth_client_id = None;
+                config.oauth_client_secret = None;
+            }
+            "oauth_client_credentials" => {
+                if config
+                    .oauth_client_id
+                    .as_ref()
+                    .map_or(true, |value| value.trim().is_empty())
+                {
+                    config.oauth_client_id = existing.oauth_client_id;
+                }
+                if config
+                    .oauth_client_secret
+                    .as_ref()
+                    .map_or(true, |value| value.trim().is_empty())
+                {
+                    config.oauth_client_secret = existing.oauth_client_secret;
+                }
+                config.bearer_token = None;
+            }
+            _ => {
+                config.bearer_token = None;
+                config.oauth_client_id = None;
+                config.oauth_client_secret = None;
+            }
+        }
+
+        if !config.custom_headers_updated {
+            config.custom_headers = existing.custom_headers;
+        }
+    }
+
+    config.custom_headers_updated = false;
+    config.has_bearer_token = false;
+    config.has_oauth_client_secret = false;
+    config.custom_header_keys.clear();
+
     state.db.save_mcp_server(&config).map_err(|e| CommandError {
         message: format!("Failed to save MCP server: {}", e),
     })

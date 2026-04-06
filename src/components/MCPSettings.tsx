@@ -16,14 +16,6 @@ type MCPAuthType =
   | "bearer"
   | "oauth_client_credentials";
 
-function formatHeaders(headers?: Record<string, string>): string {
-  if (!headers || Object.keys(headers).length === 0) {
-    return "{}";
-  }
-
-  return JSON.stringify(headers, null, 2);
-}
-
 function formatAuthLabel(authType?: string): string {
   switch (authType) {
     case "bearer":
@@ -54,7 +46,7 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
     bearerToken: "",
     oauthClientId: "",
     oauthClientSecret: "",
-    customHeaders: "{}",
+    customHeaders: "",
   });
 
   const mergedData = createMemo(() => {
@@ -93,7 +85,7 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
       bearerToken: "",
       oauthClientId: "",
       oauthClientSecret: "",
-      customHeaders: "{}",
+      customHeaders: "",
     });
     setEditingServer(null);
     setShowAddForm(false);
@@ -104,10 +96,10 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
       name: server.name,
       serverUrl: server.server_url || "",
       authType: (server.auth_type || "none") as MCPAuthType,
-      bearerToken: server.bearer_token || "",
+      bearerToken: "",
       oauthClientId: server.oauth_client_id || "",
-      oauthClientSecret: server.oauth_client_secret || "",
-      customHeaders: formatHeaders(server.custom_headers),
+      oauthClientSecret: "",
+      customHeaders: "",
     });
     setEditingServer(server);
     setShowAddForm(true);
@@ -145,13 +137,16 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
         }
       }
 
-      if (data.authType === "bearer" && !data.bearerToken.trim()) {
+      if (data.authType === "bearer" &&
+        !data.bearerToken.trim() &&
+        !(editingServer()?.has_bearer_token)) {
         alert("Bearer token is required for bearer auth");
         return;
       }
 
       if (data.authType === "oauth_client_credentials" &&
-        (!data.oauthClientId.trim() || !data.oauthClientSecret.trim())) {
+        (!data.oauthClientId.trim() ||
+          (!data.oauthClientSecret.trim() && !(editingServer()?.has_oauth_client_secret)))) {
         alert("OAuth client ID and secret are required for OAuth auth");
         return;
       }
@@ -165,6 +160,10 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
         oauth_client_id: data.authType === "oauth_client_credentials" ? data.oauthClientId.trim() || undefined : undefined,
         oauth_client_secret: data.authType === "oauth_client_credentials" ? data.oauthClientSecret.trim() || undefined : undefined,
         custom_headers: parsedHeaders,
+        custom_headers_updated: data.customHeaders.trim() !== "",
+        has_bearer_token: editingServer()?.has_bearer_token ?? false,
+        has_oauth_client_secret: editingServer()?.has_oauth_client_secret ?? false,
+        custom_header_keys: editingServer()?.custom_header_keys || [],
         enabled: editingServer()?.enabled ?? true,
         created_at: editingServer()?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -277,7 +276,7 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
                   type="password"
                   value={formData().bearerToken}
                   onInput={(e) => setFormData(prev => ({ ...prev, bearerToken: e.currentTarget.value }))}
-                  placeholder="your-bearer-token"
+                  placeholder={editingServer()?.has_bearer_token ? "Leave blank to keep existing token" : "your-bearer-token"}
                 />
               </div>
             )}
@@ -303,7 +302,7 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
                         type="password"
                         value={formData().oauthClientSecret}
                         onInput={(e) => setFormData(prev => ({ ...prev, oauthClientSecret: e.currentTarget.value }))}
-                        placeholder="your-oauth-client-secret"
+                        placeholder={editingServer()?.has_oauth_client_secret ? "Leave blank to keep existing client secret" : "your-oauth-client-secret"}
                       />
                     </div>
                   </>
@@ -315,10 +314,15 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
                     rows={6}
                     value={formData().customHeaders}
                     onInput={(e) => setFormData(prev => ({ ...prev, customHeaders: e.currentTarget.value }))}
-                    placeholder={'{\n  "X-Example": "value"\n}'}
+                    placeholder={editingServer()?.custom_header_keys.length
+                      ? 'Leave blank to keep existing headers, or enter {} to clear'
+                      : '{\n  "X-Example": "value"\n}'}
                   />
                   <small class="hint">
                     Use this for pass-through auth headers or server-specific requirements.
+                    {editingServer()?.custom_header_keys.length
+                      ? ` Existing header keys: ${editingServer()?.custom_header_keys.join(", ")}.`
+                      : ""}
                   </small>
                 </div>
               </div>
@@ -376,7 +380,7 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
                         <strong>URL:</strong> {server.server_url}
                       </div>
 
-                      {server.bearer_token && (
+                      {server.has_bearer_token && (
                         <div class="detail-row">
                           <strong>Bearer:</strong> Configured
                         </div>
@@ -388,9 +392,9 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
                         </div>
                       )}
 
-                      {server.custom_headers && Object.keys(server.custom_headers).length > 0 && (
+                      {server.custom_header_keys.length > 0 && (
                         <div class="detail-row">
-                          <strong>Headers:</strong> {Object.keys(server.custom_headers).join(", ")}
+                          <strong>Headers:</strong> {server.custom_header_keys.join(", ")}
                         </div>
                       )}
 

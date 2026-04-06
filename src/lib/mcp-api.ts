@@ -9,6 +9,10 @@ export interface MCPServerConfig {
   oauth_client_id?: string;
   oauth_client_secret?: string;
   custom_headers: Record<string, string>;
+  custom_headers_updated?: boolean;
+  has_bearer_token: boolean;
+  has_oauth_client_secret: boolean;
+  custom_header_keys: string[];
   enabled: boolean;
   created_at: string;
   updated_at: string;
