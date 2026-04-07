@@ -9,9 +9,9 @@
     "preview": "vite preview",
     "settings:export-preset": "node scripts/export-settings-preset.mjs",
     "mcp:export-presets": "node scripts/export-mcp-presets.mjs",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri": "node scripts/run-tauri.mjs",
+    "tauri:dev": "node scripts/run-tauri.mjs dev",
+    "tauri:build": "node scripts/run-tauri.mjs build"
   },
   "dependencies": {
     "@solidjs/router": "^0.14.0",

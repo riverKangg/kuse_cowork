@@ -43,6 +43,28 @@ npm install
 
 기본 빌드 명령은 아래입니다.
 
+### preset 포함 배포용 빌드 순서
+
+현재 로컬에 설정해 둔 LLM preset, MCP preset을 배포본에 포함하려면 아래 순서로 실행합니다.
+
+```bash
+npm run settings:export-preset
+npm run mcp:export-presets
+npm run tauri build
+```
+
+한 줄로 실행하면 아래와 같습니다.
+
+```bash
+npm run settings:export-preset && npm run mcp:export-presets && npm run tauri build
+```
+
+의미:
+
+1. 현재 로컬 LLM 설정을 `src-tauri/default-settings.json`으로 export
+2. 현재 로컬 MCP 설정을 `src-tauri/default-mcp-servers.json`으로 export
+3. 그 preset JSON들을 포함한 상태로 `.dmg` 생성
+
 배포본에 현재 내 LLM 설정을 기본값으로 포함하고 싶다면, 빌드 전에 settings preset 파일을 먼저 갱신합니다.
 
 ```bash
