@@ -1,6 +1,8 @@
-import { Component, For, Show, createSignal } from "solid-js";
+import { Component, For, Show, createSignal, onMount } from "solid-js";
 import { useSettings } from "../stores/settings";
 import { runAgent, AgentEvent, isTauri } from "../lib/tauri-api";
+import { getMCPServerStatuses } from "../lib/mcp-api";
+import { formatToolDisplayNameWithServers } from "../lib/tool-display";
 import "./Agent.css";
 
 interface ToolExecution {
@@ -23,8 +25,20 @@ const Agent: Component = () => {
   const [currentTurn, setCurrentTurn] = createSignal(0);
   const [totalTurns, setTotalTurns] = createSignal<number | null>(null);
   const [error, setError] = createSignal<string | null>(null);
+  const [serverNames, setServerNames] = createSignal<Record<string, string>>({});
 
   let outputEnd: HTMLDivElement | undefined;
+
+  onMount(async () => {
+    try {
+      const statuses = await getMCPServerStatuses();
+      setServerNames(
+        Object.fromEntries(statuses.map((status) => [status.id, status.name]))
+      );
+    } catch (loadError) {
+      console.error("Failed to load MCP server names:", loadError);
+    }
+  });
 
   const scrollToBottom = () => {
     outputEnd?.scrollIntoView({ behavior: "smooth" });
@@ -155,7 +169,9 @@ const Agent: Component = () => {
                       {(tool) => (
                         <div class={`tool-execution ${tool.status}`}>
                           <div class="tool-header">
-                            <span class="tool-name">{tool.tool}</span>
+                            <span class="tool-name" title={tool.tool}>
+                              {formatToolDisplayNameWithServers(tool.tool, serverNames())}
+                            </span>
                             <span class={`tool-status ${tool.status}`}>
                               {tool.status === "running" && "Running..."}
                               {tool.status === "completed" && "Done"}

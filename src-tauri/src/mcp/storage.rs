@@ -44,6 +44,7 @@ impl Database {
 
     pub fn save_mcp_server(&self, config: &MCPServerConfig) -> Result<(), DbError> {
         let conn = self.conn.lock().map_err(|_| DbError::Lock)?;
+        let sanitized_server_url = config.server_url.trim().to_string();
 
         conn.execute(
             "INSERT OR REPLACE INTO mcp_servers
@@ -52,7 +53,7 @@ impl Database {
             params![
                 config.id,
                 config.name,
-                config.server_url,
+                sanitized_server_url,
                 config.auth_type,
                 config.bearer_token,
                 config.oauth_client_id,
@@ -79,7 +80,7 @@ impl Database {
             Ok(MCPServerConfig {
                 id: row.get(0)?,
                 name: row.get(1)?,
-                server_url: row.get(2)?,
+                server_url: row.get::<_, String>(2)?.trim().to_string(),
                 auth_type: row.get(3)?,
                 bearer_token: row.get(4)?,
                 oauth_client_id: row.get(5)?,
@@ -115,7 +116,7 @@ impl Database {
             Ok(MCPServerConfig {
                 id: row.get(0)?,
                 name: row.get(1)?,
-                server_url: row.get(2)?,
+                server_url: row.get::<_, String>(2)?.trim().to_string(),
                 auth_type: row.get(3)?,
                 bearer_token: row.get(4)?,
                 oauth_client_id: row.get(5)?,

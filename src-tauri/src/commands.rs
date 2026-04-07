@@ -55,6 +55,7 @@ pub fn get_platform() -> String {
 #[command]
 pub fn get_settings(state: State<'_, Arc<AppState>>) -> Result<Settings, CommandError> {
     let settings = state.db.get_settings()?;
+    #[cfg(debug_assertions)]
     println!(
         "[get_settings] api_key length from db: {}",
         settings.api_key.len()
@@ -67,9 +68,12 @@ pub async fn save_settings(
     state: State<'_, Arc<AppState>>,
     settings: Settings,
 ) -> Result<(), CommandError> {
-    println!("[save_settings] model: {}", settings.model);
-    println!("[save_settings] base_url: {}", settings.base_url);
-    println!("[save_settings] api_key length: {}", settings.api_key.len());
+    #[cfg(debug_assertions)]
+    {
+        println!("[save_settings] model: {}", settings.model);
+        println!("[save_settings] base_url: {}", settings.base_url);
+        println!("[save_settings] api_key length: {}", settings.api_key.len());
+    }
 
     state.db.save_settings(&settings)?;
 
@@ -93,19 +97,21 @@ pub async fn test_connection(state: State<'_, Arc<AppState>>) -> Result<String, 
 
     let settings = state.db.get_settings()?;
 
-    // Debug logging
-    println!("[test_connection] model: {}", settings.model);
-    println!("[test_connection] base_url: {}", settings.base_url);
-    println!(
-        "[test_connection] api_key length: {}",
-        settings.api_key.len()
-    );
-    println!("[test_connection] provider: {}", settings.get_provider());
-    println!(
-        "[test_connection] is_local_provider: {}, allows_empty_api_key: {}",
-        settings.is_local_provider(),
-        settings.allows_empty_api_key()
-    );
+    #[cfg(debug_assertions)]
+    {
+        println!("[test_connection] model: {}", settings.model);
+        println!("[test_connection] base_url: {}", settings.base_url);
+        println!(
+            "[test_connection] api_key length: {}",
+            settings.api_key.len()
+        );
+        println!("[test_connection] provider: {}", settings.get_provider());
+        println!(
+            "[test_connection] is_local_provider: {}, allows_empty_api_key: {}",
+            settings.is_local_provider(),
+            settings.allows_empty_api_key()
+        );
+    }
 
     if settings.api_key.is_empty() && !settings.allows_empty_api_key() {
         return Ok("No API key configured".to_string());
@@ -486,13 +492,13 @@ pub async fn run_agent(
                     crate::mcp::types::ConnectionStatus::Connected
                 ) {
                     mcp_info.push_str(&format!(
-                        "Server '{}' is connected with tools:\n",
-                        server.id
+                        "Server '{}' is connected with tools. Use the exact tool names exposed to you; do not invent server_id:tool_name formats.\n",
+                        server.name
                     ));
                     for tool in server.tools {
                         mcp_info.push_str(&format!(
-                            "  - {}: {} (use format: {}:{})\n",
-                            tool.name, tool.description, server.id, tool.name
+                            "  - {}: {}\n",
+                            tool.name, tool.description
                         ));
                     }
                 }
@@ -698,13 +704,13 @@ pub async fn send_chat_with_tools(
                 crate::mcp::types::ConnectionStatus::Connected
             ) {
                 mcp_info.push_str(&format!(
-                    "Server '{}' is connected with tools:\n",
-                    server.id
+                    "Server '{}' is connected with tools. Use the exact tool names exposed to you; do not invent server_id:tool_name formats.\n",
+                    server.name
                 ));
                 for tool in server.tools {
                     mcp_info.push_str(&format!(
-                        "  - {}: {} (use format: {}:{})\n",
-                        tool.name, tool.description, server.id, tool.name
+                        "  - {}: {}\n",
+                        tool.name, tool.description
                     ));
                 }
             }
@@ -1355,13 +1361,13 @@ pub async fn run_task_agent(
                 crate::mcp::types::ConnectionStatus::Connected
             ) {
                 mcp_info.push_str(&format!(
-                    "Server '{}' is connected with tools:\n",
-                    server.id
+                    "Server '{}' is connected with tools. Use the exact tool names exposed to you; do not invent server_id:tool_name formats.\n",
+                    server.name
                 ));
                 for tool in server.tools {
                     mcp_info.push_str(&format!(
-                        "  - {}: {} (use format: {}:{})\n",
-                        tool.name, tool.description, server.id, tool.name
+                        "  - {}: {}\n",
+                        tool.name, tool.description
                     ));
                 }
             }

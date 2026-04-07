@@ -1,5 +1,7 @@
-import { Component, For, Show } from "solid-js";
+import { Component, For, Show, createSignal, onMount } from "solid-js";
 import { Task } from "../lib/tauri-api";
+import { getMCPServerStatuses } from "../lib/mcp-api";
+import { formatToolDisplayNameWithServers } from "../lib/tool-display";
 import "./TaskPanel.css";
 
 interface TaskPanelProps {
@@ -15,6 +17,19 @@ interface ToolExecution {
 }
 
 const TaskPanel: Component<TaskPanelProps> = (props) => {
+  const [serverNames, setServerNames] = createSignal<Record<string, string>>({});
+
+  onMount(async () => {
+    try {
+      const statuses = await getMCPServerStatuses();
+      setServerNames(
+        Object.fromEntries(statuses.map((status) => [status.id, status.name]))
+      );
+    } catch (error) {
+      console.error("Failed to load MCP server names:", error);
+    }
+  });
+
   const getStepIcon = (status: string) => {
     switch (status) {
       case "completed":
@@ -95,7 +110,9 @@ const TaskPanel: Component<TaskPanelProps> = (props) => {
                   <For each={props.toolExecutions}>
                     {(tool) => (
                       <div class={`tool-item ${tool.status}`}>
-                        <span class="tool-name">{tool.tool}</span>
+                        <span class="tool-name" title={tool.tool}>
+                          {formatToolDisplayNameWithServers(tool.tool, serverNames())}
+                        </span>
                         <span class="tool-status-icon">
                           {tool.status === "running" && "..."}
                           {tool.status === "completed" && "✓"}

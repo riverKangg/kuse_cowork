@@ -1,7 +1,9 @@
-import { Component, For, Show, createSignal } from "solid-js";
+import { Component, For, Show, createSignal, onMount } from "solid-js";
 import { useChat } from "../stores/chat";
 import { useSettings } from "../stores/settings";
 import { sendChatMessage, sendChatWithTools, ChatEvent, isTauri } from "../lib/tauri-api";
+import { getMCPServerStatuses } from "../lib/mcp-api";
+import { formatToolDisplayNameWithServers } from "../lib/tool-display";
 import "./Chat.css";
 
 interface ToolExecution {
@@ -32,7 +34,19 @@ const Chat: Component = () => {
   const [projectPath, setProjectPath] = createSignal("");
   const [toolExecutions, setToolExecutions] = createSignal<ToolExecution[]>([]);
   const [showProjectInput, setShowProjectInput] = createSignal(false);
+  const [serverNames, setServerNames] = createSignal<Record<string, string>>({});
   let messagesEnd: HTMLDivElement | undefined;
+
+  onMount(async () => {
+    try {
+      const statuses = await getMCPServerStatuses();
+      setServerNames(
+        Object.fromEntries(statuses.map((status) => [status.id, status.name]))
+      );
+    } catch (error) {
+      console.error("Failed to load MCP server names:", error);
+    }
+  });
 
   const scrollToBottom = () => {
     messagesEnd?.scrollIntoView({ behavior: "smooth" });
@@ -195,7 +209,9 @@ const Chat: Component = () => {
                 <For each={toolExecutions()}>
                   {(tool) => (
                     <div class={`tool-chip ${tool.status}`}>
-                      <span class="tool-chip-name">{tool.tool}</span>
+                      <span class="tool-chip-name" title={tool.tool}>
+                        {formatToolDisplayNameWithServers(tool.tool, serverNames())}
+                      </span>
                       <span class="tool-chip-status">
                         {tool.status === "running" && "..."}
                         {tool.status === "completed" && "✓"}

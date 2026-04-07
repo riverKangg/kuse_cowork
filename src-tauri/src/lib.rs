@@ -89,7 +89,7 @@ pub fn run() {
                                         "Failed to auto-connect MCP server '{}': {}",
                                         server.name, e
                                     );
-                                } else {
+                                } else if cfg!(debug_assertions) {
                                     println!("Auto-connected MCP server: {}", server.name);
                                 }
                             }

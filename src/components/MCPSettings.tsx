@@ -37,6 +37,8 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
   const [showAddForm, setShowAddForm] = createSignal(false);
   const [editingServer, setEditingServer] = createSignal<MCPServerConfig | null>(null);
   const [loading, setLoading] = createSignal(false);
+  const [uiError, setUiError] = createSignal<string | null>(null);
+  const [serverErrors, setServerErrors] = createSignal<Record<string, string>>({});
 
   // Form state
   const [formData, setFormData] = createSignal({
@@ -53,7 +55,8 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
     const statusMap = new Map(statuses().map(s => [s.id, s]));
     return servers().map(server => ({
       server,
-      status: statusMap.get(server.id)
+      status: statusMap.get(server.id),
+      error: serverErrors()[server.id] || statusMap.get(server.id)?.last_error || null,
     }));
   });
 
@@ -64,6 +67,7 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
   const refreshData = async () => {
     try {
       setLoading(true);
+      setUiError(null);
       const [serverList, statusList] = await Promise.all([
         listMCPServers(),
         getMCPServerStatuses()
@@ -72,10 +76,49 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
       setStatuses(statusList);
     } catch (err) {
       console.error("Failed to load MCP data:", err);
+      setUiError(getErrorMessage(err, "Failed to load MCP server data"));
     } finally {
       setLoading(false);
     }
   };
+
+  const getErrorMessage = (err: unknown, fallback: string) => {
+    if (err && typeof err === "object") {
+      if ("message" in err && typeof err.message === "string" && err.message.trim()) {
+        return err.message;
+      }
+
+      if ("toString" in err && typeof err.toString === "function") {
+        const text = err.toString();
+        if (text && text !== "[object Object]") {
+          return text;
+        }
+      }
+    }
+
+    return fallback;
+  };
+
+  const setServerError = (serverId: string, message: string | null) => {
+    setServerErrors((prev) => {
+      const next = { ...prev };
+      if (message) {
+        next[serverId] = message;
+      } else {
+        delete next[serverId];
+      }
+      return next;
+    });
+  };
+
+  const formatToolLabel = (name: string) =>
+    name
+      .replace(/[._/:-]+/g, " ")
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
 
   const resetForm = () => {
     setFormData({
@@ -107,6 +150,7 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
 
   const handleSave = async () => {
     try {
+      setUiError(null);
       const data = formData();
 
       if (!data.name.trim()) {
@@ -174,7 +218,9 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
       resetForm();
     } catch (err) {
       console.error("Failed to save server:", err);
-      alert("Failed to save server configuration");
+      const message = getErrorMessage(err, "Failed to save server configuration");
+      setUiError(message);
+      alert(message);
     }
   };
 
@@ -184,25 +230,39 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
     }
 
     try {
+      setUiError(null);
       await deleteMCPServer(id);
       await refreshData();
     } catch (err) {
       console.error("Failed to delete server:", err);
-      alert("Failed to delete server");
+      const message = getErrorMessage(err, "Failed to delete server");
+      setUiError(message);
+      alert(message);
     }
   };
 
   const handleToggleConnection = async (server: MCPServerConfig, currentStatus?: MCPServerStatus) => {
     try {
+      setUiError(null);
       if (currentStatus?.status === "Connected") {
         await disconnectMCPServer(server.id);
       } else {
         await connectMCPServer(server.id);
       }
+      setServerError(server.id, null);
       await refreshData();
     } catch (err) {
       console.error("Failed to toggle connection:", err);
-      alert("Failed to connect/disconnect server");
+      await refreshData();
+      const message = getErrorMessage(
+        err,
+        currentStatus?.status === "Connected"
+          ? `Failed to disconnect server '${server.name}'`
+          : `Failed to connect server '${server.name}'`
+      );
+      setServerError(server.id, message);
+      setUiError(message);
+      alert(message);
     }
   };
 
@@ -233,6 +293,12 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
       </div>
 
       <div class="mcp-settings-content">
+        {uiError() && (
+          <div class="mcp-error-banner">
+            <strong>MCP Error:</strong> {uiError()}
+          </div>
+        )}
+
         {showAddForm() && (
           <div class="add-form">
             <h3>{editingServer() ? "Edit Server" : "Add MCP Server"}</h3>
@@ -354,7 +420,7 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
           ) : (
             <div class="servers-grid">
               <For each={mergedData()}>
-                {({ server, status }) => (
+                {({ server, status, error }) => (
                   <div class="server-card">
                     <div class="server-header">
                       <div class="server-info">
@@ -363,8 +429,8 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
                       </div>
                       <div class="server-status">
                         <span
-                          class={`status-badge ${getStatusColor(status?.status)}`}
-                          title={status?.last_error}
+                          class={`status-badge ${getStatusColor(status?.status)} ${error ? "has-error" : ""}`}
+                          title={error || undefined}
                         >
                           {status?.status || "Disconnected"}
                         </span>
@@ -400,7 +466,25 @@ const MCPSettings: Component<MCPSettingsProps> = (props) => {
 
                       {status?.tools && status.tools.length > 0 && (
                         <div class="detail-row">
-                          <strong>Tools:</strong> {status.tools.map(t => t.name).join(", ")}
+                          <strong>Tools:</strong>
+                          <div class="tool-list">
+                            <For each={status.tools}>
+                              {(tool) => (
+                                <span
+                                  class="tool-chip"
+                                  title={tool.description || tool.name}
+                                >
+                                  {formatToolLabel(tool.name)}
+                                </span>
+                              )}
+                            </For>
+                          </div>
+                        </div>
+                      )}
+
+                      {error && (
+                        <div class="server-error">
+                          <strong>Last error:</strong> {error}
                         </div>
                       )}
                     </div>
