@@ -82,15 +82,31 @@ Will update to a clean release build soon.
 
 ### 2. ⚙️ Configure Your AI Model
 1. Open **Settings** (gear icon in sidebar)
-2. **Choose your AI provider:**
-   - **Anthropic Claude** - Enter your Claude API key
-   - **OpenAI GPT** - Enter your OpenAI API key
-   - **Local Models** - Configure Ollama/LM Studio endpoint
-3. **Select your preferred model** (Claude 3.5 Sonnet, GPT-4, etc.)
+2. The current desktop preset opens on **Custom**
+3. Default preset values are:
+   - **Provider**: `custom`
+   - **Model**: `Qwen3.5-397B-A17B-FP8`
+   - **Base URL**: `https://llm.ss-fai.cloud/v1`
+4. Enter your own API key for that endpoint
+5. If needed, replace the model or base URL with your own compatible endpoint
 
 ### 3. 🔑 Enter API Key
-- Add your API key in the settings
+- Add your API key in the settings for the configured custom endpoint
 - Keys are stored locally and never shared
+
+### 3-1. 🔗 MCP Preset
+- The current desktop preset includes these MCP servers by default:
+  - **Name**: `Gitlab MCP`
+  - **URL**: `https://mcp.ss-fai.cloud/gitlab/mcp`
+  - **Auth**: `Bearer Token`
+  - **Name**: `Mattermost MCP`
+  - **URL**: `https://mcp.ss-fai.cloud/mattermost/mcp`
+  - **Auth**: `Bearer Token`
+  - **Name**: `Outline MCP`
+  - **URL**: `https://wiki.ss-fai.cloud/mcp`
+  - **Auth**: `Bearer Token`
+- Secret values are not bundled
+- The receiving user must open **MCP Settings** and enter their own bearer token for each server before connecting
 
 ### 4. 📁 Set Workspace Folder
 - Click **"Select Project Path"** when creating a new task
@@ -268,4 +284,3 @@ Inspired by:
 ---
 ## Documentation & Guides
 - Open cowork Hub: [https://www.open-cowork.io](https://www.open-cowork.io)
-

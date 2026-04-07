@@ -53,6 +53,14 @@ npm run settings:export-preset
 `src-tauri/default-settings.json`으로 저장합니다.
 `api_key`, `provider_keys`는 포함되지 않습니다.
 
+현재 로컬 preset 기준 기본값:
+
+- Provider: `custom`
+- Model: `Qwen3.5-397B-A17B-FP8`
+- Base URL: `https://llm.ss-fai.cloud/v1`
+- Max Tokens: `4096`
+- Temperature: `0.7`
+
 배포본에 현재 내 MCP 서버 목록을 기본값으로 포함하고 싶다면, 빌드 전에 preset 파일을 먼저 갱신합니다.
 
 ```bash
@@ -61,6 +69,22 @@ npm run mcp:export-presets
 
 이 명령은 로컬 앱 DB에서 MCP 서버 목록을 읽어 `src-tauri/default-mcp-servers.json`으로 저장합니다.
 `bearer_token`, `oauth_client_secret`, custom header 값 같은 secret은 제외됩니다.
+
+현재 로컬 preset 기준 MCP 기본값:
+
+- Name: `Gitlab MCP`
+- URL: `https://mcp.ss-fai.cloud/gitlab/mcp`
+- Auth Type: `bearer`
+- Enabled: `true`
+- Name: `Mattermost MCP`
+- URL: `https://mcp.ss-fai.cloud/mattermost/mcp`
+- Auth Type: `bearer`
+- Enabled: `true`
+- Name: `Outline MCP`
+- URL: `https://wiki.ss-fai.cloud/mcp`
+- Auth Type: `bearer`
+- Enabled: `true`
+- Secret values: 포함되지 않음. 사용자가 첫 실행 후 직접 입력해야 함
 
 ```bash
 npm run tauri build
