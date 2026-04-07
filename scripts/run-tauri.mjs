@@ -85,8 +85,6 @@ function hideVolumeIconInDmg(dmgFile) {
       fs.rmSync(volumeIconPath, { force: true });
     }
 
-    configureDmgFinderLayout(mountPoint);
-
     execFileSync("hdiutil", ["detach", mountPoint], {
       cwd: repoRoot,
       stdio: "inherit",
@@ -108,59 +106,4 @@ function hideVolumeIconInDmg(dmgFile) {
 
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
-}
-
-function configureDmgFinderLayout(mountPoint) {
-  const appName = findAppBundleName(mountPoint);
-  if (!appName) {
-    return;
-  }
-
-  const escapedMountPoint = escapeAppleScriptString(mountPoint);
-  const escapedAppName = escapeAppleScriptString(appName);
-
-  const script = `
-    set dmgFolder to POSIX file "${escapedMountPoint}" as alias
-    tell application "Finder"
-      open dmgFolder
-      delay 1
-      set dmgWindow to front Finder window
-      tell dmgWindow
-        set current view to icon view
-        set toolbar visible to false
-        set statusbar visible to false
-        set bounds to {120, 120, 780, 500}
-      end tell
-
-      tell icon view options of dmgWindow
-        set arrangement to not arranged
-        set icon size to 128
-        set text size to 14
-      end tell
-
-      set position of item "${escapedAppName}" of dmgFolder to {170, 180}
-      set position of item "Applications" of dmgFolder to {470, 180}
-      close dmgWindow
-      open dmgFolder
-      delay 1
-      close front Finder window
-    end tell
-  `;
-
-  try {
-    execFileSync("osascript", ["-e", script], {
-      cwd: repoRoot,
-      stdio: "inherit",
-    });
-  } catch (error) {
-    console.warn(`Failed to configure Finder layout for ${mountPoint}: ${String(error)}`);
-  }
-}
-
-function findAppBundleName(mountPoint) {
-  return fs.readdirSync(mountPoint).find((name) => name.endsWith(".app"));
-}
-
-function escapeAppleScriptString(value) {
-  return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
 }
