@@ -269,5 +269,3 @@ Inspired by:
 ## Documentation & Guides
 - Open cowork Hub: [https://www.open-cowork.io](https://www.open-cowork.io)
 
-
-

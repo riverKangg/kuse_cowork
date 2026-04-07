@@ -59,10 +59,48 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Prepare Apple API key (macOS)
+        if: matrix.platform == 'macos-latest' && secrets.APPLE_API_KEY_B64 != ''
+        run: |
+          echo "${{ secrets.APPLE_API_KEY_B64 }}" | base64 -D -i - > "$RUNNER_TEMP/AuthKey_${{ secrets.APPLE_API_KEY }}.p8"
+          echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey_${{ secrets.APPLE_API_KEY }}.p8" >> $GITHUB_ENV
+
+      - name: Import Apple certificate (macOS)
+        if: matrix.platform == 'macos-latest' && secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_CERTIFICATE_PASSWORD != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 -D -i - > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import "$RUNNER_TEMP/certificate.p12" -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          CERT_ID=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          echo "APPLE_SIGNING_IDENTITY=$CERT_ID" >> $GITHUB_ENV
+
+      - name: Validate Apple signing setup (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          if [ -n "${APPLE_SIGNING_IDENTITY}" ]; then
+            echo "Using signing identity: ${APPLE_SIGNING_IDENTITY}"
+          else
+            echo "No Apple signing identity configured. macOS artifacts will be ad-hoc signed and not notarized."
+          fi
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         with:
           tagName: v__VERSION__
           releaseName: 'Kuse Cowork v__VERSION__'
@@ -84,10 +122,8 @@ jobs:
             4. Enter your Anthropic API key in Settings
 
             ### macOS Note
-            If you see "app is damaged" error:
-            ```bash
-            xattr -cr "/Applications/Kuse Cowork.app"
-            ```
+            Signed and notarized macOS builds should open normally.
+            Unsigned test builds may require approval in System Settings > Privacy & Security.
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}
