@@ -1,4 +1,4 @@
-import { Component, For, Show, createSignal, createMemo, onMount } from "solid-js";
+import { Component, For, Show, createSignal, createMemo, createEffect, onMount } from "solid-js";
 import { AVAILABLE_MODELS, PROVIDER_PRESETS, ProviderConfig } from "../stores/settings";
 import "./ModelSelector.css";
 
@@ -40,6 +40,7 @@ type OllamaStatus = "checking" | "running" | "not-running";
 
 interface ModelSelectorProps {
   value: string;
+  baseUrl?: string;
   onChange: (modelId: string, baseUrl?: string) => void;
 }
 
@@ -47,16 +48,19 @@ const ModelSelector: Component<ModelSelectorProps> = (props) => {
   // Determine current model's provider type
   const getCurrentProviderType = (): ProviderType => {
     const model = AVAILABLE_MODELS.find(m => m.id === props.value);
-    if (!model) {
-      // Check if it's an Ollama model (non-preset)
-      if (props.value && !props.value.includes("/")) {
-        return "ollama";
-      }
+    const baseUrl = props.baseUrl?.toLowerCase() || "";
+
+    if (model) {
+      if (model.provider === "ollama") return "ollama";
+      if (model.provider === "custom") return "custom";
       return "cloud";
     }
-    if (model.provider === "ollama") return "ollama";
-    if (model.provider === "custom") return "custom";
-    return "cloud";
+
+    if (baseUrl.includes("localhost:11434") || baseUrl.includes("127.0.0.1:11434")) {
+      return "ollama";
+    }
+
+    return "custom";
   };
 
   const [providerType, setProviderType] = createSignal<ProviderType>(getCurrentProviderType());
@@ -117,6 +121,10 @@ const ModelSelector: Component<ModelSelectorProps> = (props) => {
   // Check Ollama status on mount
   onMount(() => {
     checkOllamaStatus();
+  });
+
+  createEffect(() => {
+    setProviderType(getCurrentProviderType());
   });
 
   // Currently selected Ollama model

@@ -1,4 +1,5 @@
 use rusqlite::Connection;
+use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -15,6 +16,9 @@ pub enum DbError {
 }
 
 use std::collections::HashMap;
+
+const DEFAULT_SETTINGS_PRESET_JSON: &str = include_str!("../default-settings.json");
+const SETTINGS_PRESET_SEEDED_KEY: &str = "settings_preset_seeded";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
@@ -306,6 +310,64 @@ impl Database {
         Ok(())
     }
 
+    pub fn seed_default_settings_if_needed(&self) -> Result<(), DbError> {
+        let conn = self.conn.lock().map_err(|_| DbError::Lock)?;
+
+        let already_seeded = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                [SETTINGS_PRESET_SEEDED_KEY],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .is_some_and(|value| value == "true");
+
+        if already_seeded {
+            return Ok(());
+        }
+
+        let existing_count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM settings", [], |row| row.get(0))?;
+
+        if existing_count > 0 {
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+                [SETTINGS_PRESET_SEEDED_KEY, "true"],
+            )?;
+            return Ok(());
+        }
+
+        let preset: SettingsPreset =
+            serde_json::from_str(DEFAULT_SETTINGS_PRESET_JSON).unwrap_or_default();
+
+        let provider_keys_json =
+            serde_json::to_string(&preset.provider_keys).unwrap_or_else(|_| "{}".to_string());
+        let pairs = [
+            ("api_key", String::new()),
+            ("model", preset.model),
+            ("base_url", preset.base_url),
+            ("max_tokens", preset.max_tokens.to_string()),
+            ("temperature", preset.temperature.to_string()),
+            ("provider", preset.provider),
+            ("provider_keys", provider_keys_json),
+            (
+                "openai_organization",
+                preset.openai_organization.unwrap_or_default(),
+            ),
+            ("openai_project", preset.openai_project.unwrap_or_default()),
+            (SETTINGS_PRESET_SEEDED_KEY, "true".to_string()),
+        ];
+
+        for (key, value) in pairs {
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+                [key, &value],
+            )?;
+        }
+
+        Ok(())
+    }
+
     // Settings methods
     pub fn get_settings(&self) -> Result<Settings, DbError> {
         let conn = self.conn.lock().map_err(|_| DbError::Lock)?;
@@ -329,6 +391,16 @@ impl Database {
                     // Parse JSON to HashMap
                     if let Ok(keys) = serde_json::from_str::<HashMap<String, String>>(&value) {
                         settings.provider_keys = keys;
+                    }
+                }
+                "openai_organization" => {
+                    if !value.trim().is_empty() {
+                        settings.openai_organization = Some(value);
+                    }
+                }
+                "openai_project" => {
+                    if !value.trim().is_empty() {
+                        settings.openai_project = Some(value);
                     }
                 }
                 _ => {}
@@ -372,6 +444,14 @@ impl Database {
             ("temperature", settings.temperature.to_string()),
             ("provider", provider),
             ("provider_keys", provider_keys_json),
+            (
+                "openai_organization",
+                settings.openai_organization.clone().unwrap_or_default(),
+            ),
+            (
+                "openai_project",
+                settings.openai_project.clone().unwrap_or_default(),
+            ),
         ];
 
         for (key, value) in pairs {
@@ -751,4 +831,59 @@ impl Database {
 
         Ok(())
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct SettingsPreset {
+    #[serde(default = "default_model")]
+    model: String,
+    #[serde(default = "default_base_url")]
+    base_url: String,
+    #[serde(default = "default_max_tokens")]
+    max_tokens: u32,
+    #[serde(default = "default_temperature")]
+    temperature: f32,
+    #[serde(default = "default_provider")]
+    provider: String,
+    #[serde(default)]
+    provider_keys: HashMap<String, String>,
+    #[serde(default)]
+    openai_organization: Option<String>,
+    #[serde(default)]
+    openai_project: Option<String>,
+}
+
+impl Default for SettingsPreset {
+    fn default() -> Self {
+        Self {
+            model: default_model(),
+            base_url: default_base_url(),
+            max_tokens: default_max_tokens(),
+            temperature: default_temperature(),
+            provider: default_provider(),
+            provider_keys: HashMap::new(),
+            openai_organization: None,
+            openai_project: None,
+        }
+    }
+}
+
+fn default_model() -> String {
+    "custom-model".to_string()
+}
+
+fn default_base_url() -> String {
+    "http://localhost:8000".to_string()
+}
+
+fn default_max_tokens() -> u32 {
+    4096
+}
+
+fn default_temperature() -> f32 {
+    0.7
+}
+
+fn default_provider() -> String {
+    "custom".to_string()
 }

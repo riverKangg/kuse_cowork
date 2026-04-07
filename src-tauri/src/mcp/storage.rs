@@ -1,7 +1,10 @@
 use super::types::MCPServerConfig;
 use crate::database::{Database, DbError};
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 use std::collections::HashMap;
+
+const DEFAULT_MCP_PRESETS_JSON: &str = include_str!("../../default-mcp-servers.json");
+const MCP_PRESETS_SEEDED_KEY: &str = "mcp_presets_seeded";
 
 impl Database {
     pub fn create_mcp_tables(&self) -> Result<(), DbError> {
@@ -154,8 +157,120 @@ impl Database {
         )?;
         Ok(())
     }
+
+    pub fn seed_default_mcp_servers_if_needed(&self) -> Result<(), DbError> {
+        let conn = self.conn.lock().map_err(|_| DbError::Lock)?;
+
+        let already_seeded = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                [MCP_PRESETS_SEEDED_KEY],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .is_some_and(|value| value == "true");
+
+        if already_seeded {
+            return Ok(());
+        }
+
+        let existing_count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM mcp_servers", [], |row| row.get(0))?;
+
+        if existing_count > 0 {
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+                [MCP_PRESETS_SEEDED_KEY, "true"],
+            )?;
+            return Ok(());
+        }
+
+        let presets: Vec<MCPServerPreset> =
+            serde_json::from_str(DEFAULT_MCP_PRESETS_JSON).unwrap_or_default();
+
+        for preset in presets {
+            let config = preset.into_server_config();
+            conn.execute(
+                "INSERT OR REPLACE INTO mcp_servers
+                 (id, name, server_url, auth_type, bearer_token, oauth_client_id, oauth_client_secret, custom_headers, enabled, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                params![
+                    config.id,
+                    config.name,
+                    config.server_url,
+                    config.auth_type,
+                    config.bearer_token,
+                    config.oauth_client_id,
+                    config.oauth_client_secret,
+                    serde_json::to_string(&config.custom_headers)
+                        .unwrap_or_else(|_| "{}".to_string()),
+                    config.enabled,
+                    config.created_at,
+                    config.updated_at,
+                ],
+            )?;
+        }
+
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            [MCP_PRESETS_SEEDED_KEY, "true"],
+        )?;
+
+        Ok(())
+    }
 }
 
 fn parse_headers(raw: &str) -> HashMap<String, String> {
     serde_json::from_str(raw).unwrap_or_default()
+}
+
+#[derive(serde::Deserialize, Default)]
+struct MCPServerPreset {
+    id: Option<String>,
+    name: String,
+    server_url: String,
+    #[serde(default = "default_auth_type")]
+    auth_type: String,
+    #[serde(default)]
+    oauth_client_id: Option<String>,
+    #[serde(default)]
+    enabled: bool,
+    #[serde(default)]
+    custom_header_keys: Vec<String>,
+    #[serde(default)]
+    created_at: Option<String>,
+    #[serde(default)]
+    updated_at: Option<String>,
+}
+
+impl MCPServerPreset {
+    fn into_server_config(self) -> MCPServerConfig {
+        let now = chrono::Utc::now().to_rfc3339();
+        let created_at = self.created_at.unwrap_or_else(|| now.clone());
+        let updated_at = self.updated_at.unwrap_or_else(|| now.clone());
+        let has_bearer_token = self.auth_type == "bearer";
+        let has_oauth_client_secret = self.auth_type == "oauth_client_credentials";
+
+        MCPServerConfig {
+            id: self.id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+            name: self.name,
+            server_url: self.server_url.trim().to_string(),
+            auth_type: self.auth_type,
+            bearer_token: None,
+            oauth_client_id: self.oauth_client_id.filter(|value| !value.trim().is_empty()),
+            oauth_client_secret: None,
+            custom_headers: HashMap::new(),
+            custom_headers_updated: false,
+            has_bearer_token,
+            has_oauth_client_secret,
+            custom_header_keys: self.custom_header_keys,
+            enabled: self.enabled,
+            created_at,
+            updated_at,
+        }
+    }
+}
+
+fn default_auth_type() -> String {
+    "none".to_string()
 }

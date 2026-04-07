@@ -24,11 +24,7 @@ const Settings: Component = () => {
     if (baseUrl.includes("localhost:8080")) {
       return PROVIDER_PRESETS["localai"];
     }
-    // Other local services - use custom preset
-    if (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
-      return PROVIDER_PRESETS["custom"];
-    }
-    return null;
+    return PROVIDER_PRESETS["custom"];
   });
 
   // Check if it's a true local service (authType === "none", no API Key needed at all)
@@ -84,6 +80,7 @@ const Settings: Component = () => {
 
           <ModelSelector
             value={settings().model}
+            baseUrl={settings().baseUrl}
             onChange={(modelId, baseUrl) => {
               updateSetting("model", modelId);
               if (baseUrl) {

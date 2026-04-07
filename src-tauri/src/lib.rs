@@ -17,9 +17,13 @@ use tokio::sync::Mutex;
 pub fn run() {
     // Initialize database
     let db = database::Database::new().expect("Failed to initialize database");
+    db.seed_default_settings_if_needed()
+        .expect("Failed to seed default settings preset");
 
     // Initialize MCP tables
     db.create_mcp_tables().expect("Failed to create MCP tables");
+    db.seed_default_mcp_servers_if_needed()
+        .expect("Failed to seed default MCP server presets");
     let db_arc = Arc::new(db);
     let mcp_manager = Arc::new(MCPManager::new(db_arc.clone()));
 

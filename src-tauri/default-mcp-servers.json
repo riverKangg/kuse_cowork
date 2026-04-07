@@ -1,0 +1,12 @@
+[
+  {
+    "id": "0bce8c04-d1af-48d4-bcc8-940f4622d81a",
+    "name": "Gitlab MCP",
+    "server_url": "https://mcp.ss-fai.cloud/gitlab/mcp",
+    "auth_type": "bearer",
+    "enabled": true,
+    "custom_header_keys": [],
+    "created_at": "2026-04-07T02:23:26.451Z",
+    "updated_at": "2026-04-07T02:23:28.742320+00:00"
+  }
+]

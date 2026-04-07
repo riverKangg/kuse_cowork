@@ -219,8 +219,8 @@ export const AVAILABLE_MODELS = [
 
 const DEFAULT_SETTINGS: Settings = {
   apiKey: "",
-  model: "claude-sonnet-4-5-20250929",
-  baseUrl: "https://api.anthropic.com",
+  model: "custom-model",
+  baseUrl: "http://localhost:8000",
   maxTokens: 4096,
   temperature: 0.7,
   providerKeys: {},
